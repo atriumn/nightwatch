@@ -6,9 +6,10 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from nightwatch.config import NightwatchConfig
+from nightwatch.config import NightwatchConfig, normalize_focus
 from nightwatch.decisions import filter_findings, format_decision_context, load_decisions
 from nightwatch.focus import FOCUS_AREAS
+from nightwatch.focus.base import build_combined_prompt, gather_files_combined
 from nightwatch.issues import create_issues_for_findings
 from nightwatch.models import AuditResult
 from nightwatch.notifications.telegram import send_telegram
@@ -24,6 +25,30 @@ PENDING_BATCH_FILE = ".nightwatch/pending-batch.json"
 LAST_RETRIEVED_FILE = ".nightwatch/last-retrieved.json"
 
 
+def _resolve_focus_names(
+    focus_override: str | None,
+    config: NightwatchConfig,
+) -> list[str]:
+    """Resolve focus names from override or today's schedule. Returns list of names."""
+    raw = focus_override or config.get_today_focus()
+    names = normalize_focus(raw)
+    if not names:
+        return []
+
+    available = set(FOCUS_AREAS.keys())
+    for name in names:
+        if name not in available:
+            raise ValueError(
+                f"Unknown focus area: {name}. Available: {', '.join(sorted(available))}"
+            )
+    return names
+
+
+def _focus_label(names: list[str]) -> str:
+    """Create a display label for focus names: 'security+performance'."""
+    return "+".join(names)
+
+
 def submit_audit(
     config: NightwatchConfig,
     repo_name: str | None = None,
@@ -32,14 +57,10 @@ def submit_audit(
     dry_run: bool = False,
 ) -> dict | None:
     """Submit batch audit(s). Returns pending batch info to be retrieved later."""
-    focus_name = focus_name or config.get_today_focus()
-    if focus_name == "off":
+    focus_names = _resolve_focus_names(focus_name, config)
+    if not focus_names:
         print("Today is scheduled as off. Use --focus to override.")
         return None
-
-    if focus_name not in FOCUS_AREAS:
-        available = ", ".join(FOCUS_AREAS.keys())
-        raise ValueError(f"Unknown focus area: {focus_name}. Available: {available}")
 
     repos = config.repos
     if repo_name:
@@ -47,14 +68,16 @@ def submit_audit(
         if not repos:
             raise ValueError(f"Unknown repo: {repo_name}")
 
+    label = _focus_label(focus_names)
     pending = {
         "submitted_at": datetime.now().isoformat(),
-        "focus": focus_name,
+        "focus": label,
+        "focus_names": focus_names,
         "batches": [],
     }
 
     for repo in repos:
-        batch_info = _submit_repo(config, repo, focus_name, provider_name, dry_run)
+        batch_info = _submit_repo(config, repo, focus_names, provider_name, dry_run)
         if batch_info:
             pending["batches"].append(batch_info)
 
@@ -86,11 +109,14 @@ def retrieve_audit(
         print("Batch already retrieved — skipping.")
         return []
 
-    focus_name = pending["focus"]
+    # Support both old (str) and new (list) format
+    focus_names = pending.get("focus_names") or [pending["focus"]]
+    label = _focus_label(focus_names)
+    default_focus = focus_names[0] if len(focus_names) == 1 else None
     results = []
 
     for batch_info in pending["batches"]:
-        result = _retrieve_repo(config, batch_info, focus_name)
+        result = _retrieve_repo(config, batch_info, label, default_focus)
         if result:
             results.append(result)
 
@@ -110,14 +136,10 @@ def run_audit(
     dry_run: bool = False,
 ) -> list[AuditResult]:
     """Submit and wait for results (convenience for local CLI use)."""
-    focus_name = focus_name or config.get_today_focus()
-    if focus_name == "off":
+    focus_names = _resolve_focus_names(focus_name, config)
+    if not focus_names:
         print("Today is scheduled as off. Use --focus to override.")
         return []
-
-    if focus_name not in FOCUS_AREAS:
-        available = ", ".join(FOCUS_AREAS.keys())
-        raise ValueError(f"Unknown focus area: {focus_name}. Available: {available}")
 
     repos = config.repos
     if repo_name:
@@ -127,7 +149,7 @@ def run_audit(
 
     results = []
     for repo in repos:
-        result = _run_repo_sync(config, repo, focus_name, provider_name, dry_run)
+        result = _run_repo_sync(config, repo, focus_names, provider_name, dry_run)
         results.append(result)
 
     return results
@@ -152,18 +174,25 @@ def _mark_retrieved(pending: dict) -> None:
     path = Path(LAST_RETRIEVED_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     batch_ids = [b["batch_id"] for b in pending.get("batches", [])]
-    path.write_text(json.dumps({
-        "batch_ids": batch_ids,
-        "retrieved_at": datetime.now().isoformat(),
-    }, indent=2))
+    path.write_text(
+        json.dumps(
+            {
+                "batch_ids": batch_ids,
+                "retrieved_at": datetime.now().isoformat(),
+            },
+            indent=2,
+        )
+    )
 
 
-def _submit_repo(config, repo, focus_name, provider_name, dry_run):
+def _submit_repo(config, repo, focus_names, provider_name, dry_run):
     """Submit a batch for one repo. Returns batch info dict."""
-    focus = FOCUS_AREAS[focus_name]()
-    print(f"[{repo.name}] Gathering files for {focus_name} audit...")
-    files = focus.gather_files(repo.path, repo.exclude_patterns)
-    print(f"[{repo.name}] Found {len(files)} files")
+    label = _focus_label(focus_names)
+    focus_instances = [FOCUS_AREAS[name]() for name in focus_names]
+
+    print(f"[{repo.name}] Gathering files for {label} audit...")
+    files = gather_files_combined(focus_instances, repo.path, repo.exclude_patterns)
+    print(f"[{repo.name}] Found {len(files)} files ({len(focus_names)} focus area(s))")
 
     if not files:
         print(f"[{repo.name}] No files to audit, skipping")
@@ -171,10 +200,11 @@ def _submit_repo(config, repo, focus_name, provider_name, dry_run):
 
     decisions = load_decisions(config.decisions.path)
     decision_context = format_decision_context(decisions)
-    prompt = focus.get_prompt()
+    prompt = build_combined_prompt(focus_instances)
 
     if dry_run:
         print(f"[{repo.name}] DRY RUN — would send {len(files)} files to provider")
+        print(f"[{repo.name}] Focus areas: {', '.join(focus_names)}")
         print(f"[{repo.name}] Prompt length: {len(prompt)} chars")
         print(f"[{repo.name}] Decision context: {len(decisions)} prior decisions")
         return None
@@ -184,10 +214,16 @@ def _submit_repo(config, repo, focus_name, provider_name, dry_run):
         raise ValueError(f"Unknown provider: {pname}")
 
     provider = PROVIDERS[pname](model=config.model)
-    custom_id = f"{repo.name}-{focus_name}"
-    print(f"[{repo.name}] Submitting {focus_name} batch via {pname} ({config.model})...")
+    custom_id = f"{repo.name}-{label}"
+    print(f"[{repo.name}] Submitting {label} batch via {pname} ({config.model})...")
 
-    batch_id = provider.submit_batch(files, prompt, decision_context, custom_id)
+    batch_id = provider.submit_batch(
+        files,
+        prompt,
+        decision_context,
+        custom_id,
+        num_focus_areas=len(focus_names),
+    )
     print(f"[{repo.name}] Batch submitted: {batch_id}")
 
     return {
@@ -197,7 +233,7 @@ def _submit_repo(config, repo, focus_name, provider_name, dry_run):
     }
 
 
-def _retrieve_repo(config, batch_info, focus_name):
+def _retrieve_repo(config, batch_info, focus_label, default_focus):
     """Retrieve batch results for one repo."""
     repo_name = batch_info["repo"]
     batch_id = batch_info["batch_id"]
@@ -206,7 +242,7 @@ def _retrieve_repo(config, batch_info, focus_name):
     provider = PROVIDERS[pname](model=config.model)
     print(f"[{repo_name}] Checking batch {batch_id}...")
 
-    result = provider.retrieve_batch(batch_id)
+    result = provider.retrieve_batch(batch_id, default_focus=default_focus)
 
     if result["status"] != "ended":
         processing = result["request_counts"]["processing"]
@@ -228,7 +264,7 @@ def _retrieve_repo(config, batch_info, focus_name):
 
     audit_result = AuditResult(
         repo=repo_name,
-        focus=focus_name,
+        focus=focus_label,
         provider=pname,
         findings=findings,
         new_findings=new_findings,
@@ -238,7 +274,7 @@ def _retrieve_repo(config, batch_info, focus_name):
 
     # Generate and save report
     report = generate_report(audit_result)
-    report_path = save_report(report, config.reports_dir, repo_name, focus_name)
+    report_path = save_report(report, config.reports_dir, repo_name, focus_label)
     print(f"[{repo_name}] Report saved to {report_path}")
 
     # Send notifications
@@ -254,35 +290,49 @@ def _retrieve_repo(config, batch_info, focus_name):
     return audit_result
 
 
-def _run_repo_sync(config, repo, focus_name, provider_name, dry_run):
+def _run_repo_sync(config, repo, focus_names, provider_name, dry_run):
     """Run audit synchronously — submits batch, polls until done."""
-    focus = FOCUS_AREAS[focus_name]()
-    print(f"[{repo.name}] Gathering files for {focus_name} audit...")
-    files = focus.gather_files(repo.path, repo.exclude_patterns)
-    print(f"[{repo.name}] Found {len(files)} files")
+    label = _focus_label(focus_names)
+    focus_instances = [FOCUS_AREAS[name]() for name in focus_names]
+
+    print(f"[{repo.name}] Gathering files for {label} audit...")
+    files = gather_files_combined(focus_instances, repo.path, repo.exclude_patterns)
+    print(f"[{repo.name}] Found {len(files)} files ({len(focus_names)} focus area(s))")
 
     if not files:
         return AuditResult(
-            repo=repo.name, focus=focus_name, provider="none",
+            repo=repo.name,
+            focus=label,
+            provider="none",
             timestamp=datetime.now().isoformat(),
         )
 
     decisions = load_decisions(config.decisions.path)
     decision_context = format_decision_context(decisions)
-    prompt = focus.get_prompt()
+    prompt = build_combined_prompt(focus_instances)
 
     if dry_run:
         print(f"[{repo.name}] DRY RUN — would send {len(files)} files to provider")
+        print(f"[{repo.name}] Focus areas: {', '.join(focus_names)}")
         return AuditResult(
-            repo=repo.name, focus=focus_name, provider="dry-run",
+            repo=repo.name,
+            focus=label,
+            provider="dry-run",
             timestamp=datetime.now().isoformat(),
         )
 
     pname = provider_name or config.get_provider_for_repo(repo.name)
     provider = PROVIDERS[pname](model=config.model)
-    print(f"[{repo.name}] Running {focus_name} audit via {pname} (batch API, polling)...")
+    print(f"[{repo.name}] Running {label} audit via {pname} (batch API, polling)...")
 
-    findings = provider.run_audit(files, prompt, decision_context)
+    default_focus = focus_names[0] if len(focus_names) == 1 else None
+    findings = provider.run_audit(
+        files,
+        prompt,
+        decision_context,
+        num_focus_areas=len(focus_names),
+        default_focus=default_focus,
+    )
     print(f"[{repo.name}] Got {len(findings)} findings")
 
     new_findings, resolved_count = filter_findings(
@@ -290,13 +340,17 @@ def _run_repo_sync(config, repo, focus_name, provider_name, dry_run):
     )
 
     result = AuditResult(
-        repo=repo.name, focus=focus_name, provider=pname,
-        findings=findings, new_findings=new_findings,
-        resolved_count=resolved_count, timestamp=datetime.now().isoformat(),
+        repo=repo.name,
+        focus=label,
+        provider=pname,
+        findings=findings,
+        new_findings=new_findings,
+        resolved_count=resolved_count,
+        timestamp=datetime.now().isoformat(),
     )
 
     report = generate_report(result)
-    report_path = save_report(report, config.reports_dir, repo.name, focus_name)
+    report_path = save_report(report, config.reports_dir, repo.name, label)
     print(f"[{repo.name}] Report saved to {report_path}")
 
     for notif in config.notifications:

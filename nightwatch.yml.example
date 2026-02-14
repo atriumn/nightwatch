@@ -10,6 +10,15 @@ repos:
       - generated
 
 # Which focus area runs on which day
+# Values can be: a single name, a list (grouped into one API call), or "all"
+#
+# Grouping saves ~80% on input tokens by deduplicating source files:
+#   6 separate runs: ~$5/week    1 combined run: ~$1/week
+#
+# Examples:
+#   monday: security                   # single focus
+#   monday: [security, dependencies]   # grouped (one API call, files deduped)
+#   monday: all                        # all 7 focus areas in one call
 schedule:
   monday: security
   tuesday: patterns

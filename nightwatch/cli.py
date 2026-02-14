@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from nightwatch import __version__
-from nightwatch.config import WEEKDAY_NAMES, load_config
+from nightwatch.config import WEEKDAY_NAMES, load_config, normalize_focus
 from nightwatch.decisions import load_decisions, save_decision
 from nightwatch.focus import FOCUS_AREAS
 from nightwatch.models import Decision, DecisionType
@@ -27,14 +27,16 @@ def main(ctx, config_path):
 
 @main.command()
 @click.option("--repo", "-r", default=None, help="Audit a specific repo (default: all)")
-@click.option("--focus", "-f", default=None, help="Focus area (default: today's schedule)")
+@click.option("--focus", "-f", default=None, help="Focus area(s): name, comma-separated, or 'all'")
 @click.option("--provider", "-p", default=None, help="AI provider (default: from config)")
 @click.option("--dry-run", is_flag=True, help="Show what would be audited without calling AI")
 @click.pass_context
 def run(ctx, repo, focus, provider, dry_run):
     """Run an audit."""
     config = load_config(ctx.obj["config_path"])
-    results = run_audit(config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run)
+    results = run_audit(
+        config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run
+    )
 
     for result in results:
         if result.new_findings:
@@ -45,17 +47,21 @@ def run(ctx, repo, focus, provider, dry_run):
 
 @main.command()
 @click.option("--repo", "-r", default=None, help="Audit a specific repo (default: all)")
-@click.option("--focus", "-f", default=None, help="Focus area (default: today's schedule)")
+@click.option("--focus", "-f", default=None, help="Focus area(s): name, comma-separated, or 'all'")
 @click.option("--provider", "-p", default=None, help="AI provider (default: from config)")
 @click.option("--dry-run", is_flag=True, help="Show what would be audited without calling AI")
 @click.pass_context
 def submit(ctx, repo, focus, provider, dry_run):
     """Submit a batch audit (returns immediately, results retrieved later)."""
     config = load_config(ctx.obj["config_path"])
-    pending = submit_audit(config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run)
+    pending = submit_audit(
+        config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run
+    )
 
     if pending and pending["batches"]:
-        click.echo(f"\nSubmitted {len(pending['batches'])} batch(es). Run `nightwatch retrieve` to get results.")
+        click.echo(
+            f"\nSubmitted {len(pending['batches'])} batch(es). Run `nightwatch retrieve` to get results."
+        )
     elif not dry_run:
         click.echo("Nothing to submit.")
 
@@ -122,10 +128,12 @@ def schedule(ctx):
     click.echo("")
     today_name = WEEKDAY_NAMES[date.today().weekday()]
     for day in WEEKDAY_NAMES:
-        focus = config.schedule.get(day, "off")
+        raw = config.schedule.get(day, "off")
+        names = normalize_focus(raw)
+        display = ", ".join(names) if names else "off"
         marker = " ← today" if day == today_name else ""
-        icon = "  " if focus == "off" else "▶ "
-        click.echo(f"  {icon}{day.capitalize():12s} {focus}{marker}")
+        icon = "  " if not names else "▶ "
+        click.echo(f"  {icon}{day.capitalize():12s} {display}{marker}")
 
 
 @main.command()
@@ -160,8 +168,10 @@ def status(ctx):
         click.echo(f"  {len(decisions)} decisions recorded")
 
     click.echo("")
-    today_focus = config.get_today_focus()
-    click.echo(f"Today's focus: {today_focus}")
+    today_raw = config.get_today_focus()
+    today_names = normalize_focus(today_raw)
+    today_display = ", ".join(today_names) if today_names else "off"
+    click.echo(f"Today's focus: {today_display}")
 
 
 @main.command()

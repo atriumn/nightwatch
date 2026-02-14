@@ -44,6 +44,9 @@ nightwatch = "nightwatch.cli:main"
 Homepage = "https://github.com/atriumn/nightwatch"
 Issues = "https://github.com/atriumn/nightwatch/issues"
 
+[tool.hatch.build.targets.wheel]
+packages = ["nightwatch"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

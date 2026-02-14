@@ -8,22 +8,27 @@ from pathlib import Path
 from nightwatch.models import AuditResult, Severity
 
 
+def _focus_display(focus: str) -> str:
+    """Format focus string for display: 'security+performance' → 'Security + Performance'."""
+    return focus.replace("+", " + ").title()
+
+
 def generate_report(result: AuditResult) -> str:
     """Generate a markdown report from audit results."""
     lines = [
-        f"# Nightwatch Report: {result.focus.title()}",
-        f"",
+        f"# Nightwatch Report: {_focus_display(result.focus)}",
+        "",
         f"- **Repo**: {result.repo}",
-        f"- **Focus**: {result.focus}",
+        f"- **Focus**: {_focus_display(result.focus)}",
         f"- **Provider**: {result.provider}",
         f"- **Date**: {result.timestamp}",
-        f"",
-        f"## Summary",
-        f"",
+        "",
+        "## Summary",
+        "",
         f"- **New findings**: {len(result.new_findings)}",
         f"- **Total findings**: {len(result.findings)}",
         f"- **Previously resolved**: {result.resolved_count}",
-        f"",
+        "",
     ]
 
     if not result.new_findings:
@@ -47,15 +52,15 @@ def generate_report(result: AuditResult) -> str:
                 loc += "`"
 
                 lines.append(f"### {f.title}")
-                lines.append(f"")
+                lines.append("")
                 lines.append(f"**Location**: {loc}  ")
                 lines.append(f"**ID**: `{f.id}`")
-                lines.append(f"")
+                lines.append("")
                 lines.append(f"{f.description}")
                 if f.suggestion:
-                    lines.append(f"")
+                    lines.append("")
                     lines.append(f"**Suggestion**: {f.suggestion}")
-                lines.append(f"")
+                lines.append("")
 
     return "\n".join(lines)
 
@@ -81,10 +86,11 @@ def format_notification(result: AuditResult) -> str:
         "hygiene": "🧹",
         "dependencies": "📦",
     }
+    # Use specific icon for single focus, generic for combined
     icon = focus_icons.get(result.focus, "🔍")
 
     lines = [
-        f"{icon} {result.focus.title()} Audit — {result.repo}",
+        f"{icon} {_focus_display(result.focus)} Audit — {result.repo}",
     ]
 
     if not result.new_findings:
@@ -111,7 +117,7 @@ def format_notification(result: AuditResult) -> str:
             lines.append(f"   {f.file}")
 
     if result.resolved_count:
-        lines.append(f"")
+        lines.append("")
         lines.append(f"✅ {result.resolved_count} previous findings still resolved")
 
     return "\n".join(lines)

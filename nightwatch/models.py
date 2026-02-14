@@ -34,9 +34,10 @@ class Finding:
     title: str
     description: str
     suggestion: str | None = None
+    focus: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "id": self.id,
             "severity": self.severity.value,
             "file": self.file,
@@ -45,6 +46,9 @@ class Finding:
             "description": self.description,
             "suggestion": self.suggestion,
         }
+        if self.focus:
+            d["focus"] = self.focus
+        return d
 
 
 @dataclass

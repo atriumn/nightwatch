@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from pathlib import Path
 
 import anthropic
 
@@ -29,6 +28,7 @@ FINDING_SCHEMA = {
                     "title": {"type": "string"},
                     "description": {"type": "string"},
                     "suggestion": {"type": ["string", "null"]},
+                    "focus": {"type": ["string", "null"]},
                 },
                 "required": ["severity", "file", "title", "description"],
             },
@@ -54,9 +54,11 @@ class AnthropicProvider(BaseProvider):
         system_prompt: str,
         decision_context: str,
         custom_id: str = "nightwatch-audit",
+        num_focus_areas: int = 1,
     ) -> str:
         """Submit a batch request. Returns the batch ID."""
         user_message = self._build_user_message(files, decision_context)
+        max_tokens = 4096 * num_focus_areas
 
         batch = self.client.messages.batches.create(
             requests=[
@@ -64,7 +66,7 @@ class AnthropicProvider(BaseProvider):
                     "custom_id": custom_id,
                     "params": {
                         "model": self.model,
-                        "max_tokens": 4096,
+                        "max_tokens": max_tokens,
                         "system": system_prompt,
                         "messages": [{"role": "user", "content": user_message}],
                     },
@@ -74,7 +76,11 @@ class AnthropicProvider(BaseProvider):
 
         return batch.id
 
-    def retrieve_batch(self, batch_id: str) -> dict:
+    def retrieve_batch(
+        self,
+        batch_id: str,
+        default_focus: str | None = None,
+    ) -> dict:
         """Check batch status. Returns dict with status and results if done."""
         batch = self.client.messages.batches.retrieve(batch_id)
 
@@ -92,7 +98,9 @@ class AnthropicProvider(BaseProvider):
             findings = []
             for entry in self.client.messages.batches.results(batch_id):
                 if entry.result.type == "succeeded":
-                    findings = self._parse_response(entry.result.message)
+                    findings = self._parse_response(
+                        entry.result.message, default_focus=default_focus
+                    )
             result["findings"] = findings
 
         return result
@@ -102,15 +110,22 @@ class AnthropicProvider(BaseProvider):
         files: list[FileContent],
         system_prompt: str,
         decision_context: str,
+        num_focus_areas: int = 1,
+        default_focus: str | None = None,
     ) -> list[Finding]:
         """Synchronous audit (for local CLI use). Submits batch and polls."""
         import time
 
-        batch_id = self.submit_batch(files, system_prompt, decision_context)
+        batch_id = self.submit_batch(
+            files,
+            system_prompt,
+            decision_context,
+            num_focus_areas=num_focus_areas,
+        )
         print(f"  Batch submitted: {batch_id}")
 
         while True:
-            result = self.retrieve_batch(batch_id)
+            result = self.retrieve_batch(batch_id, default_focus=default_focus)
             if result["status"] == "ended":
                 return result.get("findings", [])
 
@@ -118,9 +133,7 @@ class AnthropicProvider(BaseProvider):
             print(f"  Waiting... ({processing} processing)")
             time.sleep(60)
 
-    def _build_user_message(
-        self, files: list[FileContent], decision_context: str
-    ) -> str:
+    def _build_user_message(self, files: list[FileContent], decision_context: str) -> str:
         file_contents = self._format_files(files)
         return f"""Review the following codebase files and report any findings.
 
@@ -143,7 +156,11 @@ Return ONLY the JSON object, no other text."""
             parts.append(f"### `{f.path}`\n```\n{f.content}\n```")
         return "\n\n".join(parts)
 
-    def _parse_response(self, message: anthropic.types.Message) -> list[Finding]:
+    def _parse_response(
+        self,
+        message: anthropic.types.Message,
+        default_focus: str | None = None,
+    ) -> list[Finding]:
         text = message.content[0].text
 
         # Extract JSON from response (handle markdown code blocks)
@@ -156,6 +173,7 @@ Return ONLY the JSON object, no other text."""
         findings = []
 
         for f in data.get("findings", []):
+            focus = f.get("focus") or default_focus
             finding = Finding(
                 id=self._make_finding_id(f),
                 severity=Severity(f["severity"]),
@@ -164,6 +182,7 @@ Return ONLY the JSON object, no other text."""
                 title=f["title"],
                 description=f["description"],
                 suggestion=f.get("suggestion"),
+                focus=focus,
             )
             findings.append(finding)
 
@@ -171,4 +190,7 @@ Return ONLY the JSON object, no other text."""
 
     def _make_finding_id(self, raw: dict) -> str:
         key = f"{raw['file']}:{raw['title']}:{raw.get('line', '')}"
+        # Include focus in hash when present for combined runs
+        if raw.get("focus"):
+            key = f"{raw['focus']}:{key}"
         return hashlib.sha256(key.encode()).hexdigest()[:12]

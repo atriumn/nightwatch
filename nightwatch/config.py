@@ -65,10 +65,43 @@ class IssuesConfig:
     assignees: list[str] = field(default_factory=list)
 
 
+ALL_FOCUS_NAMES = [
+    "security",
+    "docs",
+    "patterns",
+    "testing",
+    "hygiene",
+    "dependencies",
+    "performance",
+]
+
+
+def normalize_focus(raw: str | list[str] | bool) -> list[str]:
+    """Normalize a focus value to a list of focus area names.
+
+    "off"/False → [], "all" → all names, "security" → ["security"],
+    "security,performance" → ["security", "performance"], list passthrough.
+    """
+    # YAML parses bare `off` as False, `on` as True
+    if isinstance(raw, bool) or raw is None:
+        return [] if not raw else list(ALL_FOCUS_NAMES)
+    if isinstance(raw, list):
+        return [str(item) for item in raw]
+    raw = str(raw)
+    if raw == "off":
+        return []
+    if raw == "all":
+        return list(ALL_FOCUS_NAMES)
+    # Support comma-separated string from CLI
+    if "," in raw:
+        return [s.strip() for s in raw.split(",") if s.strip()]
+    return [raw]
+
+
 @dataclass
 class NightwatchConfig:
     repos: list[RepoConfig] = field(default_factory=list)
-    schedule: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_SCHEDULE))
+    schedule: dict[str, str | list[str]] = field(default_factory=lambda: dict(DEFAULT_SCHEDULE))
     budget: BudgetConfig = field(default_factory=BudgetConfig)
     notifications: list[NotificationConfig] = field(default_factory=list)
     decisions: DecisionConfig = field(default_factory=DecisionConfig)
@@ -76,7 +109,7 @@ class NightwatchConfig:
     reports_dir: str = ".nightwatch/reports"
     model: str = "claude-sonnet-4-5-20250929"
 
-    def get_today_focus(self) -> str:
+    def get_today_focus(self) -> str | list[str]:
         import datetime
 
         day = WEEKDAY_NAMES[datetime.date.today().weekday()]

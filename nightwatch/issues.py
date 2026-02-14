@@ -8,7 +8,7 @@ import subprocess
 import time
 
 from nightwatch.config import IssuesConfig
-from nightwatch.models import AuditResult, Finding, Severity
+from nightwatch.models import AuditResult, Finding
 
 SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2}
 
@@ -34,8 +34,7 @@ def create_issues_for_findings(
 
     threshold = SEVERITY_ORDER.get(issues_config.severity_threshold, 1)
     qualifying = [
-        f for f in result.new_findings
-        if SEVERITY_ORDER.get(f.severity.value, 0) >= threshold
+        f for f in result.new_findings if SEVERITY_ORDER.get(f.severity.value, 0) >= threshold
     ]
 
     if not qualifying:
@@ -69,7 +68,8 @@ def _gh_authenticated() -> bool:
     try:
         result = subprocess.run(
             ["gh", "auth", "status"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, OSError):
@@ -82,7 +82,9 @@ def _issue_exists(finding: Finding) -> bool:
     try:
         result = subprocess.run(
             ["gh", "issue", "list", "--search", marker, "--state", "open", "--json", "number"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if result.returncode != 0:
             return False
@@ -108,31 +110,37 @@ def _create_issue(
     body_parts = [
         f"**Severity:** {severity}",
         f"**Location:** `{location}`",
-        f"**Focus area:** {result.focus}",
+        f"**Focus area:** {result.focus.replace('+', ' + ')}",
         "",
-        f"### Description",
+        "### Description",
         finding.description,
     ]
 
     if finding.suggestion:
         body_parts.extend(["", "### Suggestion", finding.suggestion])
 
-    body_parts.extend([
-        "",
-        "---",
-        f"*Found by [Nightwatch](https://github.com/atriumn/nightwatch) ({result.provider}, {result.timestamp})*",
-        "",
-        f"<!-- nightwatch-finding-id: {finding.id} -->",
-    ])
+    body_parts.extend(
+        [
+            "",
+            "---",
+            f"*Found by [Nightwatch](https://github.com/atriumn/nightwatch) ({result.provider}, {result.timestamp})*",
+            "",
+            f"<!-- nightwatch-finding-id: {finding.id} -->",
+        ]
+    )
 
     body = "\n".join(body_parts)
 
     labels = list(config.labels) + [f"nightwatch:{severity}"]
 
     cmd = [
-        "gh", "issue", "create",
-        "--title", title,
-        "--body", body,
+        "gh",
+        "issue",
+        "create",
+        "--title",
+        title,
+        "--body",
+        body,
     ]
 
     for label in labels:
@@ -143,7 +151,10 @@ def _create_issue(
 
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if proc.returncode != 0:
             stderr = proc.stderr.strip()

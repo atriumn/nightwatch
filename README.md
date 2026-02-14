@@ -12,9 +12,21 @@ Nightly AI-powered codebase audits with rotating focus areas, multi-provider sup
 Mon: Security → Tue: Patterns → Wed: Docs → Thu: Hygiene → Fri: Performance → Sat: Dependencies
 ```
 
+You can also group multiple focus areas into a single API call to save on input tokens (source files are sent once instead of repeated per focus area):
+
+```yaml
+# ~80% savings on input tokens vs running each separately
+schedule:
+  monday: [security, dependencies]
+  wednesday: [patterns, hygiene, docs]
+  friday: [performance, testing]
+```
+
+Or run everything at once: `nightwatch run --focus all`
+
 Each night, Nightwatch:
-1. Picks today's focus area from the schedule
-2. Gathers relevant files from your codebase
+1. Picks today's focus area(s) from the schedule
+2. Gathers relevant files from your codebase (deduped across focus areas)
 3. Sends them to an AI provider (Claude, GPT, Gemini) with a focused prompt
 4. Filters results against your decision history (so resolved issues don't resurface)
 5. Generates a report and sends you a notification
@@ -32,6 +44,12 @@ cp nightwatch.yml.example nightwatch.yml
 # Run a security audit
 export ANTHROPIC_API_KEY=sk-...
 nightwatch run --focus security
+
+# Run multiple focus areas in one call
+nightwatch run --focus security,performance
+
+# Run all focus areas at once
+nightwatch run --focus all
 
 # See the schedule
 nightwatch schedule
@@ -52,9 +70,8 @@ on:
   workflow_dispatch:
     inputs:
       focus:
-        description: 'Focus area override'
-        type: choice
-        options: [security, docs, patterns, performance, hygiene, dependencies]
+        description: 'Focus area(s) — name, comma-separated, or "all"'
+        type: string
 
 jobs:
   audit:
@@ -80,7 +97,7 @@ Create a `nightwatch.yml` in your project root. See [nightwatch.yml.example](nig
 |--------|-------------|---------|
 | `repos[].path` | Path to repository | `.` |
 | `repos[].provider_rotation` | AI providers to rotate through | `[anthropic]` |
-| `schedule` | Day-of-week to focus area mapping | Security Mon, Patterns Tue, ... |
+| `schedule` | Day-of-week to focus area(s) — single name, list, or `all` | Security Mon, Patterns Tue, ... |
 | `model` | AI model to use | `claude-sonnet-4-5-20250929` |
 | `decisions.expiry_days` | Days before a decision expires | `90` |
 | `notifications` | Where to send summaries | (none) |
