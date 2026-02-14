@@ -1,9 +1,11 @@
-"""Anthropic (Claude) provider."""
+"""Anthropic (Claude) provider — uses Message Batches API (50% off)."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from pathlib import Path
 
 import anthropic
 
@@ -46,15 +48,81 @@ class AnthropicProvider(BaseProvider):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
 
+    def submit_batch(
+        self,
+        files: list[FileContent],
+        system_prompt: str,
+        decision_context: str,
+        custom_id: str = "nightwatch-audit",
+    ) -> str:
+        """Submit a batch request. Returns the batch ID."""
+        user_message = self._build_user_message(files, decision_context)
+
+        batch = self.client.messages.batches.create(
+            requests=[
+                {
+                    "custom_id": custom_id,
+                    "params": {
+                        "model": self.model,
+                        "max_tokens": 4096,
+                        "system": system_prompt,
+                        "messages": [{"role": "user", "content": user_message}],
+                    },
+                }
+            ]
+        )
+
+        return batch.id
+
+    def retrieve_batch(self, batch_id: str) -> dict:
+        """Check batch status. Returns dict with status and results if done."""
+        batch = self.client.messages.batches.retrieve(batch_id)
+
+        result = {
+            "batch_id": batch_id,
+            "status": batch.processing_status,
+            "request_counts": {
+                "processing": batch.request_counts.processing,
+                "succeeded": batch.request_counts.succeeded,
+                "errored": batch.request_counts.errored,
+            },
+        }
+
+        if batch.processing_status == "ended":
+            findings = []
+            for entry in self.client.messages.batches.results(batch_id):
+                if entry.result.type == "succeeded":
+                    findings = self._parse_response(entry.result.message)
+            result["findings"] = findings
+
+        return result
+
     def run_audit(
         self,
         files: list[FileContent],
         system_prompt: str,
         decision_context: str,
     ) -> list[Finding]:
-        file_contents = self._format_files(files)
+        """Synchronous audit (for local CLI use). Submits batch and polls."""
+        import time
 
-        user_message = f"""Review the following codebase files and report any findings.
+        batch_id = self.submit_batch(files, system_prompt, decision_context)
+        print(f"  Batch submitted: {batch_id}")
+
+        while True:
+            result = self.retrieve_batch(batch_id)
+            if result["status"] == "ended":
+                return result.get("findings", [])
+
+            processing = result["request_counts"]["processing"]
+            print(f"  Waiting... ({processing} processing)")
+            time.sleep(30)
+
+    def _build_user_message(
+        self, files: list[FileContent], decision_context: str
+    ) -> str:
+        file_contents = self._format_files(files)
+        return f"""Review the following codebase files and report any findings.
 
 {decision_context}
 
@@ -69,23 +137,14 @@ Respond with a JSON object matching this schema:
 
 Return ONLY the JSON object, no other text."""
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-
-        return self._parse_response(response)
-
     def _format_files(self, files: list[FileContent]) -> str:
         parts = []
         for f in files:
             parts.append(f"### `{f.path}`\n```\n{f.content}\n```")
         return "\n\n".join(parts)
 
-    def _parse_response(self, response: anthropic.types.Message) -> list[Finding]:
-        text = response.content[0].text
+    def _parse_response(self, message: anthropic.types.Message) -> list[Finding]:
+        text = message.content[0].text
 
         # Extract JSON from response (handle markdown code blocks)
         if "```json" in text:
@@ -111,7 +170,5 @@ Return ONLY the JSON object, no other text."""
         return findings
 
     def _make_finding_id(self, raw: dict) -> str:
-        import hashlib
-
         key = f"{raw['file']}:{raw['title']}:{raw.get('line', '')}"
         return hashlib.sha256(key.encode()).hexdigest()[:12]

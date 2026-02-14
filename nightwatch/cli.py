@@ -12,7 +12,7 @@ from nightwatch.config import WEEKDAY_NAMES, load_config
 from nightwatch.decisions import load_decisions, save_decision
 from nightwatch.focus import FOCUS_AREAS
 from nightwatch.models import Decision, DecisionType
-from nightwatch.runner import run_audit
+from nightwatch.runner import retrieve_audit, run_audit, submit_audit
 
 
 @click.group()
@@ -35,6 +35,42 @@ def run(ctx, repo, focus, provider, dry_run):
     """Run an audit."""
     config = load_config(ctx.obj["config_path"])
     results = run_audit(config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run)
+
+    for result in results:
+        if result.new_findings:
+            click.echo(f"\n{result.repo}: {len(result.new_findings)} new findings")
+        else:
+            click.echo(f"\n{result.repo}: No new findings ✓")
+
+
+@main.command()
+@click.option("--repo", "-r", default=None, help="Audit a specific repo (default: all)")
+@click.option("--focus", "-f", default=None, help="Focus area (default: today's schedule)")
+@click.option("--provider", "-p", default=None, help="AI provider (default: from config)")
+@click.option("--dry-run", is_flag=True, help="Show what would be audited without calling AI")
+@click.pass_context
+def submit(ctx, repo, focus, provider, dry_run):
+    """Submit a batch audit (returns immediately, results retrieved later)."""
+    config = load_config(ctx.obj["config_path"])
+    pending = submit_audit(config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run)
+
+    if pending and pending["batches"]:
+        click.echo(f"\nSubmitted {len(pending['batches'])} batch(es). Run `nightwatch retrieve` to get results.")
+    elif not dry_run:
+        click.echo("Nothing to submit.")
+
+
+@main.command()
+@click.option("--pending-file", default=None, help="Path to pending batch JSON file")
+@click.pass_context
+def retrieve(ctx, pending_file):
+    """Retrieve results from a previously submitted batch."""
+    config = load_config(ctx.obj["config_path"])
+    results = retrieve_audit(config, pending_path=pending_file)
+
+    if not results:
+        click.echo("No results ready yet. Batch may still be processing.")
+        return
 
     for result in results:
         if result.new_findings:

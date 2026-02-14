@@ -1,22 +1,23 @@
 name: 'Nightwatch AI Audit'
-description: 'Run AI-powered codebase audits with rotating focus areas and decision memory'
+description: 'Run AI-powered codebase audits using batch API (50% off)'
 branding:
   icon: 'shield'
   color: 'blue'
 
 inputs:
+  mode:
+    description: 'submit (send to batch API) or retrieve (get results)'
+    required: true
+    default: 'submit'
   focus:
-    description: 'Focus area to audit (security, docs, etc.). Defaults to today''s schedule.'
-    required: false
-  provider:
-    description: 'AI provider to use (anthropic, openai, etc.). Defaults to config.'
+    description: 'Focus area to audit. Defaults to today''s schedule.'
     required: false
   config:
     description: 'Path to nightwatch.yml config file.'
     required: false
     default: 'nightwatch.yml'
   anthropic-api-key:
-    description: 'Anthropic API key (if using Claude)'
+    description: 'Anthropic API key'
     required: false
   telegram-bot-token:
     description: 'Telegram bot token for notifications'
@@ -24,10 +25,6 @@ inputs:
   telegram-chat-id:
     description: 'Telegram chat ID for notifications'
     required: false
-  python-version:
-    description: 'Python version to use'
-    required: false
-    default: '3.12'
 
 runs:
   using: 'composite'
@@ -35,31 +32,46 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ inputs.python-version }}
+        python-version: '3.12'
 
     - name: Install nightwatch
       shell: bash
-      run: pip install nightwatch-ai
+      run: pip install git+https://github.com/atriumn/nightwatch.git
 
-    - name: Run audit
+    - name: Download pending batch (retrieve mode)
+      if: inputs.mode == 'retrieve'
+      uses: actions/cache/restore@v4
+      with:
+        path: .nightwatch/pending-batch.json
+        key: nightwatch-pending-batch
+
+    - name: Run nightwatch
       shell: bash
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         TELEGRAM_BOT_TOKEN: ${{ inputs.telegram-bot-token }}
         TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
       run: |
-        ARGS="--config ${{ inputs.config }}"
-        if [ -n "${{ inputs.focus }}" ]; then
-          ARGS="$ARGS --focus ${{ inputs.focus }}"
+        if [ "${{ inputs.mode }}" = "submit" ]; then
+          ARGS="--config ${{ inputs.config }}"
+          if [ -n "${{ inputs.focus }}" ]; then
+            ARGS="$ARGS --focus ${{ inputs.focus }}"
+          fi
+          nightwatch submit $ARGS
+        else
+          nightwatch retrieve --config ${{ inputs.config }}
         fi
-        if [ -n "${{ inputs.provider }}" ]; then
-          ARGS="$ARGS --provider ${{ inputs.provider }}"
-        fi
-        nightwatch run $ARGS
+
+    - name: Cache pending batch (submit mode)
+      if: inputs.mode == 'submit'
+      uses: actions/cache/save@v4
+      with:
+        path: .nightwatch/pending-batch.json
+        key: nightwatch-pending-batch
 
     - name: Upload reports
       uses: actions/upload-artifact@v4
-      if: always()
+      if: inputs.mode == 'retrieve'
       with:
         name: nightwatch-reports
         path: .nightwatch/reports/
