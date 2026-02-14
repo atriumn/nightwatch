@@ -1,0 +1,66 @@
+name: 'Nightwatch AI Audit'
+description: 'Run AI-powered codebase audits with rotating focus areas and decision memory'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  focus:
+    description: 'Focus area to audit (security, docs, etc.). Defaults to today''s schedule.'
+    required: false
+  provider:
+    description: 'AI provider to use (anthropic, openai, etc.). Defaults to config.'
+    required: false
+  config:
+    description: 'Path to nightwatch.yml config file.'
+    required: false
+    default: 'nightwatch.yml'
+  anthropic-api-key:
+    description: 'Anthropic API key (if using Claude)'
+    required: false
+  telegram-bot-token:
+    description: 'Telegram bot token for notifications'
+    required: false
+  telegram-chat-id:
+    description: 'Telegram chat ID for notifications'
+    required: false
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install nightwatch
+      shell: bash
+      run: pip install nightwatch-ai
+
+    - name: Run audit
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        TELEGRAM_BOT_TOKEN: ${{ inputs.telegram-bot-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+      run: |
+        ARGS="--config ${{ inputs.config }}"
+        if [ -n "${{ inputs.focus }}" ]; then
+          ARGS="$ARGS --focus ${{ inputs.focus }}"
+        fi
+        if [ -n "${{ inputs.provider }}" ]; then
+          ARGS="$ARGS --provider ${{ inputs.provider }}"
+        fi
+        nightwatch run $ARGS
+
+    - name: Upload reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nightwatch-reports
+        path: .nightwatch/reports/
+        retention-days: 30

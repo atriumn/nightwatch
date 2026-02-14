@@ -1,0 +1,41 @@
+# Nightwatch configuration
+# Copy this to nightwatch.yml and customize for your project.
+
+repos:
+  - name: my-app
+    path: .  # Current directory (for GitHub Actions)
+    provider_rotation: [anthropic]
+    exclude:
+      - vendor
+      - generated
+
+# Which focus area runs on which day
+schedule:
+  monday: security
+  tuesday: patterns
+  wednesday: docs
+  thursday: hygiene
+  friday: performance
+  saturday: dependencies
+  sunday: off
+
+# AI model to use (any Anthropic model ID)
+model: claude-sonnet-4-5-20250929
+
+# Token budget per run
+budget:
+  max_per_run_usd: 2.00
+  alert_threshold_usd: 1.50
+
+# Where to store decision memory
+decisions:
+  expiry_days: 90
+  path: .nightwatch/decisions.jsonl
+
+# Where to save reports
+reports_dir: .nightwatch/reports
+
+# Notification channels (optional)
+notifications:
+  - channel: telegram
+    target: "YOUR_CHAT_ID"

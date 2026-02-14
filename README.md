@@ -1,0 +1,158 @@
+# Nightwatch
+
+Nightly AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.
+
+**The problem**: Codebases drift. Docs go stale, security issues creep in, patterns diverge, dead code accumulates. Manual reviews are expensive and inconsistent. Linters catch syntax but miss semantics.
+
+**The solution**: Nightwatch runs a focused AI audit every night, rotating through different concerns. It remembers what you've already reviewed so it only surfaces genuinely new findings.
+
+## How It Works
+
+```
+Mon: Security → Tue: Patterns → Wed: Docs → Thu: Hygiene → Fri: Performance → Sat: Dependencies
+```
+
+Each night, Nightwatch:
+1. Picks today's focus area from the schedule
+2. Gathers relevant files from your codebase
+3. Sends them to an AI provider (Claude, GPT, Gemini) with a focused prompt
+4. Filters results against your decision history (so resolved issues don't resurface)
+5. Generates a report and sends you a notification
+
+## Quick Start
+
+### Local CLI
+
+```bash
+pip install nightwatch-ai
+
+# Create config (edit to match your project)
+cp nightwatch.yml.example nightwatch.yml
+
+# Run a security audit
+export ANTHROPIC_API_KEY=sk-...
+nightwatch run --focus security
+
+# See the schedule
+nightwatch schedule
+
+# Review a finding and dismiss it
+nightwatch decide abc123def456 --action dismiss --reason "This is test code"
+```
+
+### GitHub Actions
+
+Add to `.github/workflows/nightwatch.yml`:
+
+```yaml
+name: Nightwatch Audit
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 6am UTC daily
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: 'Focus area override'
+        type: choice
+        options: [security, docs, patterns, performance, hygiene, dependencies]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: atriumn/nightwatch/action@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          focus: ${{ inputs.focus }}
+          telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+```
+
+## Configuration
+
+Create a `nightwatch.yml` in your project root. See [nightwatch.yml.example](nightwatch.yml.example) for all options.
+
+### Key Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `repos[].path` | Path to repository | `.` |
+| `repos[].provider_rotation` | AI providers to rotate through | `[anthropic]` |
+| `schedule` | Day-of-week to focus area mapping | Security Mon, Patterns Tue, ... |
+| `model` | AI model to use | `claude-sonnet-4-5-20250929` |
+| `decisions.expiry_days` | Days before a decision expires | `90` |
+| `notifications` | Where to send summaries | (none) |
+
+## Focus Areas
+
+| Area | What It Checks |
+|------|---------------|
+| **security** | Secrets, injection vulnerabilities, permissions, dependency CVEs |
+| **docs** | README accuracy, stale comments, API doc drift |
+| **patterns** | Naming conventions, architecture consistency, duplicated logic |
+| **performance** | Missing caching, expensive patterns, bundle size |
+| **hygiene** | Dead code, orphaned files, stale config |
+| **dependencies** | Outdated packages, security advisories |
+
+## Decision Memory
+
+When nightwatch finds something you've already addressed, you can record a decision:
+
+```bash
+# "We fixed this"
+nightwatch decide abc123 --action accept --reason "Fixed in PR #42"
+
+# "This is fine, stop flagging it"
+nightwatch decide def456 --action dismiss --reason "Test fixture, not real credentials"
+
+# "We know, it's on purpose"
+nightwatch decide ghi789 --action intentional --reason "Intentionally permissive CORS for dev"
+```
+
+Decisions are stored in `.nightwatch/decisions.jsonl` and fed to future runs. A finding won't resurface unless:
+- The file it's in changes
+- The decision expires (default: 90 days)
+
+Commit your decisions file to share across the team.
+
+## Example Output
+
+### Telegram Notification
+
+```
+🔒 Security Audit — my-app
+3 new findings: 🔴 1 high, 🟡 2 medium
+
+⚠️ SQL interpolation in query builder
+   src/db/queries.ts
+ℹ️ Console.log with request body
+   src/middleware/auth.ts
+ℹ️ Permissive CORS in production config
+   src/config/cors.ts
+
+✅ 5 previous findings still resolved
+```
+
+### Full Report
+
+Reports are saved as markdown in `.nightwatch/reports/{repo}/{date}-{focus}.md`.
+
+## Multi-Provider Support
+
+Rotate between providers to get different perspectives:
+
+```yaml
+repos:
+  - name: my-app
+    provider_rotation: [anthropic, openai, gemini]
+```
+
+Different models catch different things. Claude is strong on security reasoning, GPT excels at structured analysis, Gemini can ingest massive codebases in a single pass.
+
+*Currently supported: Anthropic (Claude). OpenAI and Gemini coming soon.*
+
+## License
+
+MIT
