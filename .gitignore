@@ -20,5 +20,5 @@ noxaudit.yml
 .nightwatch/
 nightwatch.yml
 .ralph/
--e .ralph-monitor.log
+.ralph-monitor.log
 .ralph-prompt.txt
