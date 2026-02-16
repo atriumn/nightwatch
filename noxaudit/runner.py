@@ -6,15 +6,15 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from nightwatch.config import NightwatchConfig, normalize_focus
-from nightwatch.decisions import filter_findings, format_decision_context, load_decisions
-from nightwatch.focus import FOCUS_AREAS
-from nightwatch.focus.base import build_combined_prompt, gather_files_combined
-from nightwatch.issues import create_issues_for_findings
-from nightwatch.models import AuditResult
-from nightwatch.notifications.telegram import send_telegram
-from nightwatch.providers.anthropic import AnthropicProvider
-from nightwatch.reporter import format_notification, generate_report, save_report
+from noxaudit.config import NightwatchConfig, normalize_focus
+from noxaudit.decisions import filter_findings, format_decision_context, load_decisions
+from noxaudit.focus import FOCUS_AREAS
+from noxaudit.focus.base import build_combined_prompt, gather_files_combined
+from noxaudit.issues import create_issues_for_findings
+from noxaudit.models import AuditResult
+from noxaudit.notifications.telegram import send_telegram
+from noxaudit.providers.anthropic import AnthropicProvider
+from noxaudit.reporter import format_notification, generate_report, save_report
 
 
 PROVIDERS = {

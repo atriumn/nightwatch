@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from nightwatch.models import AuditResult, Finding, Severity
+from noxaudit.models import AuditResult, Finding, Severity
 
 
 @pytest.fixture

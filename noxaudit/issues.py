@@ -7,8 +7,8 @@ import shutil
 import subprocess
 import time
 
-from nightwatch.config import IssuesConfig
-from nightwatch.models import AuditResult, Finding
+from noxaudit.config import IssuesConfig
+from noxaudit.models import AuditResult, Finding
 
 SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2}
 

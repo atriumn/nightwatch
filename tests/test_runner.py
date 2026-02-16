@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from nightwatch.config import NightwatchConfig, normalize_focus
-from nightwatch.runner import _focus_label, _resolve_focus_names
+from noxaudit.config import NightwatchConfig, normalize_focus
+from noxaudit.runner import _focus_label, _resolve_focus_names
 
 
 class TestFocusLabel:

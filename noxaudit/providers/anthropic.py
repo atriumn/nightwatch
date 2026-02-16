@@ -8,8 +8,8 @@ import os
 
 import anthropic
 
-from nightwatch.models import FileContent, Finding, Severity
-from nightwatch.providers.base import BaseProvider
+from noxaudit.models import FileContent, Finding, Severity
+from noxaudit.providers.base import BaseProvider
 
 FINDING_SCHEMA = {
     "type": "object",

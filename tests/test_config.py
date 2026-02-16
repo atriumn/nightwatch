@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from nightwatch.config import (
+from noxaudit.config import (
     ALL_FOCUS_NAMES,
     NightwatchConfig,
     load_config,

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from nightwatch.cli import main
+from noxaudit.cli import main
 
 
 def _write_config(tmp_path, schedule=None):
