@@ -2,7 +2,7 @@
 
 ## Vision
 
-Noxaudit becomes the standard way teams keep codebases healthy — a nightly AI reviewer that finds what's drifting, fixes what it can, and proves compliance to anyone who asks.
+Noxaudit becomes the standard way teams keep codebases **and products** healthy — a nightly AI reviewer that finds what's drifting, fixes what it can, and proves compliance to anyone who asks.
 
 ## Where we are today (v0.1.0)
 
@@ -43,6 +43,10 @@ Detailed in [Phase 4](./04-monetization.md), but the short version:
 - **Enterprise** (custom): Compliance frameworks, audit trails, SSO, self-hosted, SLA
 
 The website strategy is detailed in [Phase 3](./03-web-presence.md).
+
+## Cross-cutting: Product Quality Focus Areas
+
+In addition to the phase-based roadmap, [Product Quality Focus Areas](./06-product-quality-focus-areas.md) describes the expansion from 7 engineer-facing focus areas to 13 total — adding UX copy, user flow coherence, accessibility, cross-browser compatibility, help content accuracy, and error state handling. These land mid-Phase 2 and reshape the value proposition: from "keep your codebase healthy" to "keep your product healthy." This also informs the free/paid boundary — engineer focus areas stay free, product focus areas become the paid differentiator.
 
 ## How to read these docs
 
