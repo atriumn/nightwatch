@@ -46,7 +46,7 @@ The website strategy is detailed in [Phase 3](./03-web-presence.md).
 
 ## Cross-cutting: Product Quality Focus Areas
 
-In addition to the phase-based roadmap, [Product Quality Focus Areas](./06-product-quality-focus-areas.md) describes the expansion from 7 engineer-facing focus areas to 17 total — adding UX copy, user flow coherence, accessibility, cross-browser compatibility, help content accuracy, error state handling, UI clarity, internationalization, design system consistency, and performance UX. These land mid-Phase 2 and reshape the value proposition: from "keep your codebase healthy" to "keep your product healthy." This also informs the free/paid boundary — engineer focus areas stay free, product focus areas become the paid differentiator.
+In addition to the phase-based roadmap, [Product Quality Focus Areas](./06-product-quality-focus-areas.md) describes the expansion from 7 engineer-facing focus areas to 18 total — adding UX copy, user flow coherence, accessibility, cross-browser compatibility, help content accuracy, error state handling, UI clarity, internationalization, design system consistency, performance UX, and CI/CD delivery health. These are organized into five frames: "Does it work?", "Does it feel right?", "Can everyone use it?", "Does it last?", and "Can we prove it?" — each a toggleable category that maps to a team's stage and priorities. This reshapes the value proposition: from "keep your codebase healthy" to "keep your product healthy." It also informs the free/paid boundary — engineer focus areas stay free, product/ops focus areas become the paid differentiator.
 
 ## How to read these docs
 
