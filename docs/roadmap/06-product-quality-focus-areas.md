@@ -22,14 +22,14 @@ It also creates differentiation that's hard to replicate. Every SAST tool does s
 
 ## The five frames
 
-Every focus area answers one of five questions. These frames organize the 18 focus areas into concerns that map to real team priorities — and they're the toggle layer that lets teams turn entire categories on or off based on what matters right now.
+Every focus area answers one of five questions. These frames organize the 17 focus areas into concerns that map to real team priorities — and they're the toggle layer that lets teams turn entire categories on or off based on what matters right now.
 
 | Frame | Question | Focus areas | Who cares |
 |---|---|---|---|
 | **Does it work?** | Can users complete their tasks without hitting errors? | `security`, `testing`, `error-states`, `user-flows`, `help-content` | Engineering, QA |
 | **Does it feel right?** | Is the experience polished, consistent, and intuitive? | `ux-copy`, `ui-clarity`, `design-system`, `perf-ux` | Design, Product |
 | **Can everyone use it?** | Does it work for all users, devices, languages, abilities? | `a11y`, `compatibility`, `i18n` | Product, Legal, Growth |
-| **Does it last?** | Can the team keep shipping without the codebase fighting back? | `patterns`, `hygiene`, `docs`, `dependencies`, `cicd` | Engineering leads, Platform |
+| **Does it last?** | Can the team keep shipping without the codebase fighting back? | `patterns`, `hygiene`, `docs`, `dependencies` | Engineering leads |
 | **Can we prove it?** | Can we demonstrate quality to auditors, customers, and leadership? | `performance` + Phase 5 (compliance mapping, audit trail, policy-as-code) | Security, Compliance, Exec |
 
 ### How teams use frames
@@ -93,7 +93,7 @@ Frames map naturally to the combined audit schedule:
 Mon: Does it work?        → security + testing + error-states + user-flows + help-content
 Tue: Does it feel right?  → ux-copy + ui-clarity + design-system + perf-ux
 Wed: Can everyone use it? → a11y + compatibility + i18n
-Thu: Does it last?        → patterns + hygiene + docs + dependencies + cicd
+Thu: Does it last?        → patterns + hygiene + docs + dependencies
 Fri: Can we prove it?     → performance + (compliance checks when Phase 5 ships)
 ```
 
@@ -406,78 +406,10 @@ Free users get the two frames every engineer needs: "Does it work?" (core safety
 - This requires some understanding of rendering behavior. The AI can reason about DOM size (500 list items = large DOM) and animation properties (transform vs. left/top) but can't measure actual frame rates.
 - Auto-fix potential is low-medium. Adding `loading="lazy"` to images: yes. Implementing virtualization for a list: needs human design decisions.
 
-### 11. CI/CD & Delivery Health (`cicd`)
-
-**What the AI reviews**: CI/CD pipeline definitions, deployment scripts, Dockerfiles, infrastructure-as-code, feature flag configuration, rollback mechanisms, monitoring/alerting config, runbooks, environment configuration, build caching.
-
-**What it flags**:
-
-**Deployment confidence** (can you ship without fear?):
-
-| Severity | Example |
-|---|---|
-| Critical | No rollback mechanism — deployment is one-way (no blue/green, no canary, no `kubectl rollout undo`, no revert workflow) |
-| Critical | Production secrets referenced by name in CI config but not in secret manager — key rotation requires pipeline changes |
-| High | CI pipeline has no caching — full dependency install on every run, 15-minute builds that could be 3 minutes |
-| High | No staging/preview environment — code goes from PR to production with no intermediate validation |
-| High | Deploy script has undocumented manual steps (comments like `# SSH into prod and run migrate`) |
-| Medium | Flaky test detection absent — no retry mechanism, no quarantine, flaky tests silently block or silently pass |
-| Medium | CI matrix doesn't cover all supported versions/platforms listed in project config |
-| Medium | Feature flags exist but have no expiry or cleanup mechanism — 47 flags, 30 are stale |
-
-**Incident response readiness** (when things break, how fast can you respond?):
-
-| Severity | Example |
-|---|---|
-| Critical | No health check endpoint — orchestrator can't detect when the service is unhealthy |
-| Critical | Error monitoring not configured (no Sentry, no error tracking integration in the codebase) |
-| High | Alerting config references stale endpoints, channels, or thresholds that haven't been updated with recent changes |
-| High | No runbook or incident response docs — or runbook references architecture/steps that no longer exist |
-| High | Log messages don't include request/trace IDs — correlating logs across services during an incident is impossible |
-| Medium | No graceful shutdown handling — in-flight requests are dropped on deploy |
-| Medium | Database migration is not reversible — `down()` migration is empty or missing |
-| Medium | Monitoring dashboards reference metrics that are no longer emitted |
-
-**Delivery velocity** (what's slowing you down?):
-
-| Severity | Example |
-|---|---|
-| High | Single monolithic CI job that runs everything sequentially — lint, test, build, deploy in one 25-minute job instead of parallel stages |
-| High | No dependency lockfile — builds are non-deterministic, "works on my machine" is unsolvable |
-| Medium | PR template/checklist is stale — references steps or tools that no longer apply |
-| Medium | Branch protection rules referenced in docs don't match actual GitHub settings (detectable via config files) |
-| Medium | Dockerfile not multi-stage — dev dependencies in production image, slow builds, large image size |
-| Low | No build artifact caching between CI runs — rebuilding unchanged dependencies every time |
-| Low | CI config duplicated across repos with no shared workflow/template |
-
-**File patterns**: `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `Dockerfile`, `docker-compose*.yml`, `terraform/`, `pulumi/`, `k8s/`, `deploy/`, `scripts/deploy*`, `Makefile`, `.env.example`, monitoring config, alerting rules, feature flag config, runbooks/playbooks.
-
-**Why this matters**: DORA metrics (deployment frequency, lead time, change failure rate, MTTR) are the industry standard for measuring engineering effectiveness. But DORA measures *outcomes* — it tells you your MTTR is 4 hours but not *why*. This focus area audits the *preconditions*: the pipeline config, deployment infrastructure, monitoring setup, and incident tooling that determine whether those DORA numbers will be good or bad. It's DORA flipped from measurement to prevention.
-
-A team with a 20-minute CI pipeline, no staging environment, no rollback mechanism, and stale runbooks will have poor DORA numbers no matter how good their code is. This focus area finds those systemic bottlenecks before they show up as missed SLAs.
-
-**The DORA connection**:
-
-| DORA metric | What makes it bad (that noxaudit can detect) |
-|---|---|
-| **Deployment frequency** | Slow CI (no caching, sequential jobs), no automated deploy, manual approval bottlenecks |
-| **Lead time for changes** | Long build times, no preview environments, heavyweight PR process |
-| **Change failure rate** | No staging, missing tests in CI, no canary/gradual rollout, no feature flags |
-| **Mean time to recovery** | No rollback mechanism, stale runbooks, no health checks, no error monitoring, no trace IDs in logs |
-
-**Considerations**:
-- This focus area reviews *infrastructure code*, not application code. The file patterns are completely different from all other focus areas — CI configs, Dockerfiles, IaC, deploy scripts.
-- Many findings are about *absence* rather than *presence* — "no health check endpoint exists" is harder for an AI to assert than "this SQL query is vulnerable." The prompt needs to guide the AI to look for what *should* be there based on the project's deployment model.
-- This is the most opinionated focus area. Not every project needs blue/green deployments or feature flags. Severity should scale with project maturity — a side project shouldn't get critical findings for not having a canary deployment strategy.
-- Auto-fix potential is medium for some items (adding CI caching, adding a health check endpoint, multi-stage Dockerfile) but low for architectural items (implementing rollback, setting up staging).
-- This focus area sits in "Does it last?" because delivery health is about sustainability — a team that can't deploy safely, respond to incidents, or ship quickly is a team whose codebase doesn't last regardless of code quality.
-
----
-
 ## How these interact with existing focus areas
 
 ```
-                    Engineer-facing          User-facing / Operational
+                    Engineer-facing          User-facing
                     (existing)               (new)
                     ─────────────            ──────────────
 Code quality:       patterns                 user-flows
@@ -496,10 +428,10 @@ Safety:             security                 a11y
 
 Performance:        performance              perf-ux
 
-Infrastructure:     dependencies             cicd
+Infrastructure:     dependencies
 ```
 
-The new focus areas don't replace the existing ones — they mirror them from the user's and operator's perspective. `patterns` asks "is the code consistent?" while `user-flows` asks "is the product coherent?" `docs` asks "are the READMEs accurate?" while `help-content` asks "are the tooltips accurate?" `security` asks "can an attacker exploit this?" while `a11y` asks "can a screen reader user navigate this?" `performance` asks "is the code fast?" while `perf-ux` asks "does the app feel fast?" `dependencies` asks "are our deps healthy?" while `cicd` asks "can we ship and recover safely?"
+The new focus areas don't replace the existing ones — they mirror them from the user's perspective. `patterns` asks "is the code consistent?" while `user-flows` asks "is the product coherent?" `docs` asks "are the READMEs accurate?" while `help-content` asks "are the tooltips accurate?" `security` asks "can an attacker exploit this?" while `a11y` asks "can a screen reader user navigate this?" `performance` asks "is the code fast?" while `perf-ux` asks "does the app feel fast?"
 
 ## Scheduling implications
 
@@ -511,7 +443,7 @@ The five frames replace the old "which focus areas on which day" question with s
 Mon: Does it work?        → security + testing + error-states + user-flows + help-content
 Tue: Does it feel right?  → ux-copy + ui-clarity + design-system + perf-ux
 Wed: Can everyone use it? → a11y + compatibility + i18n
-Thu: Does it last?        → patterns + hygiene + docs + dependencies + cicd
+Thu: Does it last?        → patterns + hygiene + docs + dependencies
 Fri: Can we prove it?     → performance + compliance (Phase 5)
 ```
 
@@ -541,7 +473,6 @@ This reduces cost while ensuring the highest-impact frames run frequently. A sta
 | **design-system** | Medium | Swapping raw hex for tokens: yes. Consolidating 4 button components: no |
 | **perf-ux** | Low-Medium | Adding `loading="lazy"`: yes. Implementing virtualization: no |
 | **compatibility** | Low-Medium | Adding CSS fallbacks: yes. Restructuring layouts: needs review |
-| **cicd** | Medium | Adding CI caching, health check endpoints, multi-stage Dockerfile: yes. Redesigning deployment strategy: no |
 | **ui-clarity** | Low | Can suggest restructuring, but "too busy" fixes require design decisions |
 | **user-flows** | Low | Fixing dead routes is structural; can suggest but shouldn't auto-apply |
 
@@ -564,7 +495,7 @@ If product quality focus areas become the paid differentiator:
 | | Free | Pro | Team |
 |---|---|---|---|
 | **Engineer focus areas** (7) | All | All | All |
-| **Product + ops focus areas** (11) | a11y + i18n (readiness only) + cicd | All 11 | All 11 + custom |
+| **Product focus areas** (10) | a11y + i18n (readiness only) | All 10 | All 10 + custom |
 | **Auto-fix** | Hygiene + docs + a11y | + ux-copy, help-content, error-states, i18n | All |
 
 This makes the free/paid boundary about **audience** (engineer vs. product team) rather than about **capability** (with/without auto-fix). A solo developer gets full engineering audits for free. A team that cares about product quality pays. That's a cleaner story.
@@ -592,7 +523,7 @@ Product focus areas should land **mid-Phase 2** — after the custom focus area 
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Too many focus areas overwhelm users | Confusion, config fatigue | Group into categories (engineer / product), sane defaults, don't require configuring all 18 |
+| Too many focus areas overwhelm users | Confusion, config fatigue | Group into categories (engineer / product), sane defaults, don't require configuring all 17 |
 | Product focus areas produce vague findings | Users dismiss them as noise | Invest in prompt quality; these prompts are harder to write than code-focused ones because "good UX" is more subjective than "has a SQL injection" |
 | AI hallucinates UI issues that don't exist | Trust erosion | Higher confidence threshold for product findings; always include file/line references so users can verify immediately |
 | "We already have QA for this" | Low adoption in teams with existing QA processes | Position as augmenting QA, not replacing it — catches issues before QA, reduces QA cycle time, covers things QA doesn't check every sprint |
