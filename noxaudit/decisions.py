@@ -153,15 +153,23 @@ def create_baseline_decisions(
 def remove_baseline_decisions(
     decisions_path: str | Path,
     finding_ids: set[str] | None = None,
+    repo: str | None = None,
+    focus: str | None = None,
+    severity: str | None = None,
 ) -> int:
     """Remove baseline decisions from the JSONL file.
 
     If finding_ids is given, only removes baselines for those IDs.
+    If repo/focus/severity are given, filters stored decisions by those criteria directly
+    (does not require latest-findings.json to be present).
     Returns count of removed decisions.
     """
     path = Path(decisions_path)
     if not path.exists():
         return 0
+
+    focus_names = {f.strip() for f in focus.split(",") if f.strip()} if focus else None
+    sev_names = {s.strip().lower() for s in severity.split(",") if s.strip()} if severity else None
 
     all_decisions = load_decisions(path)
     kept = []
@@ -169,6 +177,12 @@ def remove_baseline_decisions(
     for d in all_decisions:
         is_baseline = d.reason == "baseline"
         matches_filter = finding_ids is None or d.finding_id in finding_ids
+        if repo is not None:
+            matches_filter = matches_filter and d.repo == repo
+        if focus_names is not None:
+            matches_filter = matches_filter and d.focus in focus_names
+        if sev_names is not None:
+            matches_filter = matches_filter and d.severity in sev_names
         if is_baseline and matches_filter:
             removed += 1
         else:
