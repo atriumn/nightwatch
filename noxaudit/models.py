@@ -60,6 +60,9 @@ class Decision:
     by: str
     file: str | None = None  # File the finding was in (for change detection)
     file_hash: str | None = None  # Hash of file at decision time
+    focus: str | None = None  # Focus area (stored for baseline filtering)
+    severity: str | None = None  # Severity value (stored for baseline filtering)
+    repo: str | None = None  # Repo name (stored for baseline filtering)
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -73,7 +76,27 @@ class Decision:
             d["file"] = self.file
         if self.file_hash:
             d["file_hash"] = self.file_hash
+        if self.focus:
+            d["focus"] = self.focus
+        if self.severity:
+            d["severity"] = self.severity
+        if self.repo:
+            d["repo"] = self.repo
         return d
+
+
+@dataclass
+class FileClassification:
+    path: str
+    relevant: bool
+    reason: str | None = None
+
+
+@dataclass
+class PrepassResult:
+    classified: list["FileClassification"]
+    original_count: int
+    retained_count: int
 
 
 @dataclass
