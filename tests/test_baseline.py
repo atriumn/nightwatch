@@ -374,7 +374,44 @@ class TestBaselineCLI:
         assert "Removed 2 baseline decisions." in result.output
         assert load_decisions(decisions_path) == []
 
-    def test_baseline_undo_with_repo_label(self, tmp_path, monkeypatch):
+    def test_baseline_undo_with_repo_filter(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        decisions_path = tmp_path / ".noxaudit" / "decisions.jsonl"
+        decisions_path.parent.mkdir(parents=True, exist_ok=True)
+        # Decision for my-app
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="aaa",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                repo="my-app",
+            ),
+        )
+        # Decision for other-app — should be kept
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="bbb",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                repo="other-app",
+            ),
+        )
+
+        result = CliRunner().invoke(main, ["baseline", "--undo", "--repo", "my-app"])
+
+        assert result.exit_code == 0, result.output
+        assert "Removed 1 baseline decisions for my-app." in result.output
+        remaining = load_decisions(decisions_path)
+        assert len(remaining) == 1
+        assert remaining[0].finding_id == "bbb"
+
+    def test_baseline_undo_with_focus_filter(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         decisions_path = tmp_path / ".noxaudit" / "decisions.jsonl"
         decisions_path.parent.mkdir(parents=True, exist_ok=True)
@@ -386,14 +423,87 @@ class TestBaselineCLI:
                 reason="baseline",
                 date=date.today().isoformat(),
                 by="baseline",
+                focus="security",
+            ),
+        )
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="bbb",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                focus="docs",
             ),
         )
 
-        # With --repo but no latest-findings.json for that repo: removes all baselines
-        result = CliRunner().invoke(main, ["baseline", "--undo", "--repo", "my-app"])
+        result = CliRunner().invoke(main, ["baseline", "--undo", "--focus", "security"])
 
         assert result.exit_code == 0, result.output
-        assert "for my-app" in result.output
+        assert "Removed 1 baseline decisions." in result.output
+        remaining = load_decisions(decisions_path)
+        assert len(remaining) == 1
+        assert remaining[0].finding_id == "bbb"
+
+    def test_baseline_undo_with_severity_filter(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        decisions_path = tmp_path / ".noxaudit" / "decisions.jsonl"
+        decisions_path.parent.mkdir(parents=True, exist_ok=True)
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="aaa",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                severity="high",
+            ),
+        )
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="bbb",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                severity="low",
+            ),
+        )
+
+        result = CliRunner().invoke(main, ["baseline", "--undo", "--severity", "low"])
+
+        assert result.exit_code == 0, result.output
+        assert "Removed 1 baseline decisions." in result.output
+        remaining = load_decisions(decisions_path)
+        assert len(remaining) == 1
+        assert remaining[0].finding_id == "aaa"
+
+    def test_baseline_undo_warns_when_no_match(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        decisions_path = tmp_path / ".noxaudit" / "decisions.jsonl"
+        decisions_path.parent.mkdir(parents=True, exist_ok=True)
+        save_decision(
+            decisions_path,
+            Decision(
+                finding_id="aaa",
+                decision=DecisionType.DISMISSED,
+                reason="baseline",
+                date=date.today().isoformat(),
+                by="baseline",
+                repo="other-app",
+            ),
+        )
+
+        result = CliRunner().invoke(main, ["baseline", "--undo", "--repo", "nonexistent"])
+
+        assert result.exit_code == 0, result.output
+        assert "Warning" in result.output
+        assert "No baseline decisions matched filters" in result.output
+        # Nothing removed
+        assert len(load_decisions(decisions_path)) == 1
 
     def test_baseline_list_shows_count(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
