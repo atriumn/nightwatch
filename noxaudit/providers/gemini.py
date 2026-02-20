@@ -55,6 +55,12 @@ class GeminiProvider(BaseProvider):
         genai.configure(api_key=api_key)
         self.model = model
         self.client = genai.GenerativeModel(model)
+        self._last_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
 
     def run_audit(
         self,
@@ -70,6 +76,15 @@ class GeminiProvider(BaseProvider):
         response = self.client.generate_content(
             [system_prompt, user_message],
         )
+
+        # Store usage information for later retrieval
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            self._last_usage = {
+                "input_tokens": response.usage_metadata.prompt_token_count or 0,
+                "output_tokens": response.usage_metadata.candidates_token_count or 0,
+                "cache_read_tokens": getattr(response.usage_metadata, "cached_content_input_token_count", 0) or 0,
+                "cache_write_tokens": 0,  # Gemini doesn't provide cache write tokens
+            }
 
         return self._parse_response(response, default_focus=default_focus)
 
@@ -134,3 +149,7 @@ Return ONLY the JSON object, no other text."""
         if raw.get("focus"):
             key = f"{raw['focus']}:{key}"
         return hashlib.sha256(key.encode()).hexdigest()[:12]
+
+    def get_last_usage(self) -> dict:
+        """Return token usage from the last API call."""
+        return self._last_usage
