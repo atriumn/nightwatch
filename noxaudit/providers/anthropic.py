@@ -47,6 +47,12 @@ class AnthropicProvider(BaseProvider):
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
+        self._last_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
 
     def submit_batch(
         self,
@@ -98,9 +104,22 @@ class AnthropicProvider(BaseProvider):
             findings = []
             for entry in self.client.messages.batches.results(batch_id):
                 if entry.result.type == "succeeded":
-                    findings = self._parse_response(
-                        entry.result.message, default_focus=default_focus
-                    )
+                    message = entry.result.message
+                    # Store usage information for later retrieval
+                    if hasattr(message, "usage") and message.usage:
+                        self._last_usage = {
+                            "input_tokens": message.usage.input_tokens or 0,
+                            "output_tokens": message.usage.output_tokens or 0,
+                            "cache_read_tokens": getattr(
+                                message.usage, "cache_read_input_tokens", 0
+                            )
+                            or 0,
+                            "cache_write_tokens": getattr(
+                                message.usage, "cache_creation_input_tokens", 0
+                            )
+                            or 0,
+                        }
+                    findings = self._parse_response(message, default_focus=default_focus)
             result["findings"] = findings
 
         return result
@@ -194,3 +213,7 @@ Return ONLY the JSON object, no other text."""
         if raw.get("focus"):
             key = f"{raw['focus']}:{key}"
         return hashlib.sha256(key.encode()).hexdigest()[:12]
+
+    def get_last_usage(self) -> dict:
+        """Return token usage from the last API call."""
+        return self._last_usage

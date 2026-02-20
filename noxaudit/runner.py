@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from noxaudit.config import NoxauditConfig, normalize_focus
+from noxaudit.cost_ledger import CostLedger
 from noxaudit.decisions import filter_findings, format_decision_context, load_decisions
 from noxaudit.focus import FOCUS_AREAS
 from noxaudit.focus.base import build_combined_prompt, gather_files_combined
@@ -233,6 +234,7 @@ def _submit_repo(config, repo, focus_names, provider_name, dry_run):
         "repo": repo.name,
         "batch_id": batch_id,
         "provider": pname,
+        "file_count": len(files),
     }
 
 
@@ -254,6 +256,22 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus):
 
     findings = result.get("findings", [])
     print(f"[{repo_name}] Got {len(findings)} findings")
+
+    # Log cost ledger entry
+    file_count = batch_info.get("file_count", 0)
+    if file_count > 0:
+        usage = provider.get_last_usage()
+        CostLedger.append_entry(
+            repo=repo_name,
+            focus=focus_label,
+            provider=pname,
+            model=config.model,
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            cache_read_tokens=usage.get("cache_read_tokens", 0),
+            cache_write_tokens=usage.get("cache_write_tokens", 0),
+            file_count=file_count,
+        )
 
     # Find repo config for path
     repo_config = next((r for r in config.repos if r.name == repo_name), None)
@@ -346,6 +364,20 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run):
         default_focus=default_focus,
     )
     print(f"[{repo.name}] Got {len(findings)} findings")
+
+    # Log cost ledger entry
+    usage = provider.get_last_usage()
+    CostLedger.append_entry(
+        repo=repo.name,
+        focus=label,
+        provider=pname,
+        model=config.model,
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        cache_read_tokens=usage.get("cache_read_tokens", 0),
+        cache_write_tokens=usage.get("cache_write_tokens", 0),
+        file_count=len(files),
+    )
 
     new_findings, resolved_count = filter_findings(
         findings, decisions, repo.path, config.decisions.expiry_days
