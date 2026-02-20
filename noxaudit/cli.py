@@ -9,6 +9,7 @@ import click
 
 from noxaudit import __version__
 from noxaudit.config import WEEKDAY_NAMES, load_config, normalize_focus
+from noxaudit.cost_ledger import CostLedger
 from noxaudit.frames import FRAME_LABELS, FRAMES, get_enabled_focus_areas
 from noxaudit.decisions import (
     create_baseline_decisions,
@@ -20,6 +21,72 @@ from noxaudit.decisions import (
 from noxaudit.focus import FOCUS_AREAS
 from noxaudit.models import Decision, DecisionType
 from noxaudit.runner import retrieve_audit, run_audit, submit_audit
+
+
+def _format_tokens(n: int) -> str:
+    """Format token count as human-readable (287000 -> '287K')."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n // 1_000}K"
+    return str(n)
+
+
+def _display_cost_summary() -> None:
+    """Display cost tracking summary from ledger."""
+    entries = CostLedger.get_last_n_days(30)
+
+    if not entries:
+        click.echo("")
+        click.echo("Cost (last 30 days):")
+        click.echo("  No audit history yet")
+        return
+
+    # Calculate aggregates
+    total_input = sum(e.get("input_tokens", 0) for e in entries)
+    total_output = sum(e.get("output_tokens", 0) for e in entries)
+    total_cost = sum(e.get("cost_estimate_usd", 0) for e in entries)
+    avg_cost = total_cost / len(entries) if entries else 0
+
+    # Project monthly (assuming consistent)
+    days_available = 30
+    projected_monthly = total_cost / days_available * 30
+
+    click.echo("")
+    click.echo("Cost (last 30 days):")
+    click.echo(f"  Audits run:          {len(entries)}")
+    click.echo(f"  Total input tokens:  {_format_tokens(total_input)}")
+    click.echo(f"  Total output tokens: {_format_tokens(total_output)}")
+    click.echo(f"  Estimated spend:     ${total_cost:.2f}")
+    click.echo(f"  Avg per audit:       ${avg_cost:.2f}")
+    click.echo(f"  Projected monthly:   ~${projected_monthly:.2f}")
+
+    # Show last 5 audits
+    last_5 = entries[-5:] if len(entries) >= 5 else entries
+    if last_5:
+        click.echo("")
+        click.echo("  Last 5 audits:")
+        for entry in reversed(last_5):
+            timestamp = entry.get("timestamp", "")
+            # Parse ISO timestamp and format as date
+            try:
+                from datetime import datetime
+
+                dt = datetime.fromisoformat(timestamp)
+                date_str = dt.strftime("%b %d")
+            except (ValueError, TypeError):
+                date_str = "unknown"
+
+            focus = entry.get("focus", "")
+            model = entry.get("model", "")
+            file_count = entry.get("file_count", 0)
+            total_tokens = entry.get("input_tokens", 0) + entry.get("output_tokens", 0)
+            cost = entry.get("cost_estimate_usd", 0)
+
+            click.echo(
+                f"    {date_str}  {focus:<18} {model:<20} {file_count:>3} files  "
+                f"{_format_tokens(total_tokens):>7} tok  ${cost:.2f}"
+            )
 
 
 @click.group()
@@ -206,6 +273,9 @@ def status(ctx):
         today_display = ", ".join(today_names) if today_names else "off"
 
     click.echo(f"Today's focus: {today_display}")
+
+    # Cost tracking section
+    _display_cost_summary()
 
 
 @main.command()
