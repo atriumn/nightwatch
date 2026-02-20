@@ -82,7 +82,10 @@ class GeminiProvider(BaseProvider):
             self._last_usage = {
                 "input_tokens": response.usage_metadata.prompt_token_count or 0,
                 "output_tokens": response.usage_metadata.candidates_token_count or 0,
-                "cache_read_tokens": getattr(response.usage_metadata, "cached_content_input_token_count", 0) or 0,
+                "cache_read_tokens": getattr(
+                    response.usage_metadata, "cached_content_input_token_count", 0
+                )
+                or 0,
                 "cache_write_tokens": 0,  # Gemini doesn't provide cache write tokens
             }
 

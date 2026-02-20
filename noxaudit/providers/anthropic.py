@@ -110,12 +110,16 @@ class AnthropicProvider(BaseProvider):
                         self._last_usage = {
                             "input_tokens": message.usage.input_tokens or 0,
                             "output_tokens": message.usage.output_tokens or 0,
-                            "cache_read_tokens": getattr(message.usage, "cache_read_input_tokens", 0) or 0,
-                            "cache_write_tokens": getattr(message.usage, "cache_creation_input_tokens", 0) or 0,
+                            "cache_read_tokens": getattr(
+                                message.usage, "cache_read_input_tokens", 0
+                            )
+                            or 0,
+                            "cache_write_tokens": getattr(
+                                message.usage, "cache_creation_input_tokens", 0
+                            )
+                            or 0,
                         }
-                    findings = self._parse_response(
-                        message, default_focus=default_focus
-                    )
+                    findings = self._parse_response(message, default_focus=default_focus)
             result["findings"] = findings
 
         return result

@@ -50,7 +50,6 @@ def _display_cost_summary() -> None:
 
     # Project monthly (assuming consistent)
     days_available = 30
-    runs_per_day = len(entries) / days_available
     projected_monthly = total_cost / days_available * 30
 
     click.echo("")
@@ -72,6 +71,7 @@ def _display_cost_summary() -> None:
             # Parse ISO timestamp and format as date
             try:
                 from datetime import datetime
+
                 dt = datetime.fromisoformat(timestamp)
                 date_str = dt.strftime("%b %d")
             except (ValueError, TypeError):
