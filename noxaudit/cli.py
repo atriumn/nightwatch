@@ -440,23 +440,23 @@ def baseline(ctx, repo, focus, severity, undo, list_baselines):
 
     if undo:
         if repo or focus or severity:
-            # Filter stored baseline decisions directly — do not rely on the
-            # ephemeral latest-findings.json which may be stale or empty.
-            all_baselines = list_baseline_decisions(config.decisions.path)
-            finding_ids: set[str] = set()
-            focus_names = [f.strip() for f in focus.split(",") if f.strip()] if focus else None
-            sev_names = (
-                [s.strip().lower() for s in severity.split(",") if s.strip()] if severity else None
+            removed = remove_baseline_decisions(
+                config.decisions.path,
+                repo=repo,
+                focus=focus,
+                severity=severity,
             )
-            for d in all_baselines:
-                if repo and d.repo != repo:
-                    continue
-                if focus_names and d.focus not in focus_names:
-                    continue
-                if sev_names and d.severity not in sev_names:
-                    continue
-                finding_ids.add(d.finding_id)
-            removed = remove_baseline_decisions(config.decisions.path, finding_ids=finding_ids)
+            if removed == 0:
+                filter_parts = []
+                if repo:
+                    filter_parts.append(f"repo={repo}")
+                if focus:
+                    filter_parts.append(f"focus={focus}")
+                if severity:
+                    filter_parts.append(f"severity={severity}")
+                click.echo(
+                    f"Warning: No baseline decisions matched filters ({', '.join(filter_parts)})."
+                )
         else:
             removed = remove_baseline_decisions(config.decisions.path)
         label = f" for {repo}" if repo else ""
