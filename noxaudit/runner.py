@@ -297,13 +297,11 @@ def _submit_repo(config, repo, focus_names, provider_name, dry_run):
 
     provider = PROVIDERS[pname](model=config.model)
 
-    # Execute pre-pass if triggered — filter files before the main audit
+    # Execute pre-pass if triggered — classify and enrich files before the main audit
     if should_run_prepass:
         from noxaudit.prepass import run_prepass
 
-        prepass_result = run_prepass(files, focus_names, provider)
-        relevant_paths = {fc.path for fc in prepass_result.classified if fc.relevant}
-        files = [f for f in files if f.path in relevant_paths]
+        prepass_result, files = run_prepass(files, focus_names, provider)
         print(
             f"[{repo.name}] Pre-pass: {prepass_result.retained_count}/"
             f"{prepass_result.original_count} files retained"
@@ -461,13 +459,11 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
 
     provider = PROVIDERS[pname](model=config.model)
 
-    # Execute pre-pass if triggered — filter files before the main audit
+    # Execute pre-pass if triggered — classify and enrich files before the main audit
     if should_run_prepass:
         from noxaudit.prepass import run_prepass
 
-        prepass_result = run_prepass(files, focus_names, provider)
-        relevant_paths = {fc.path for fc in prepass_result.classified if fc.relevant}
-        files = [f for f in files if f.path in relevant_paths]
+        prepass_result, files = run_prepass(files, focus_names, provider)
         print(
             f"[{repo.name}] Pre-pass: {prepass_result.retained_count}/"
             f"{prepass_result.original_count} files retained"

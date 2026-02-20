@@ -85,11 +85,25 @@ class Decision:
         return d
 
 
+class ContentTier(str, Enum):
+    """Content tier for pre-pass classification — how much of a file to send to the main audit."""
+
+    FULL = "full"  # Send complete file content
+    SNIPPET = "snippet"  # Extract and send a representative snippet
+    MAP = "map"  # Send only structural map (class/function signatures)
+    SKIP = "skip"  # Exclude from main audit entirely
+
+
 @dataclass
 class FileClassification:
     path: str
-    relevant: bool
+    tier: ContentTier = ContentTier.FULL  # Default: include full content if used
     reason: str | None = None
+
+    @property
+    def relevant(self) -> bool:
+        """True if this file should be included in the main audit."""
+        return self.tier != ContentTier.SKIP
 
 
 @dataclass
