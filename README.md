@@ -225,6 +225,8 @@ Decisions are stored in `.noxaudit/decisions.jsonl` and fed to future runs. A fi
 
 Commit your decisions file to share across the team.
 
+Reports are saved as markdown in `.noxaudit/reports/{repo}/{date}-{focus}.md`.
+
 ## Multi-Provider Support
 
 Rotate between providers to get different perspectives:
