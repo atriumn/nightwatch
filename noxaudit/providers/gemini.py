@@ -58,9 +58,7 @@ class GeminiProvider(BaseProvider):
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
-        genai.configure(api_key=api_key)
         self.model = model
-        self.client = genai.GenerativeModel(model)
         self._api_client = genai.Client(api_key=api_key)
         self._last_usage = {
             "input_tokens": 0,
@@ -175,8 +173,10 @@ class GeminiProvider(BaseProvider):
         """Run an audit synchronously and return findings."""
         user_message = self._build_user_message(files, decision_context)
 
-        response = self.client.generate_content(
-            [system_prompt, user_message],
+        response = self._api_client.models.generate_content(
+            model=self.model,
+            contents=user_message,
+            config={"system_instruction": system_prompt},
         )
 
         # Store usage information for later retrieval
