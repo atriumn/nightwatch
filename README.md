@@ -190,6 +190,7 @@ Create a `noxaudit.yml` in your project root. See [noxaudit.yml.example](noxaudi
 | `repos[].provider_rotation` | AI providers to rotate through (see [Providers](#providers) section) | `[anthropic]` |
 | `schedule` | Day-of-week to focus area(s) — single name, list, or `all` | Security Mon, Patterns Tue, ... |
 | `model` | AI model to use (see [Providers](#providers) section for provider-specific setup) | `claude-sonnet-4-5-20250929` |
+| `providers.<name>.model` | Override model for a specific provider (e.g., `providers.gemini.model`) | (uses global `model`) |
 | `prepass` | Pre-pass filtering configuration (see [Providers](#providers) section) | disabled |
 | `decisions.expiry_days` | Days before a decision expires | `90` |
 | `notifications` | Where to send summaries | (none) |
@@ -269,6 +270,13 @@ repos:
 # Use Anthropic by default
 model: claude-sonnet-4-5-20250929
 
+# Optional: Set provider-specific models (overrides `model` for that provider)
+providers:
+  gemini:
+    model: gemini-2.0-flash
+  openai:
+    model: gpt-5-mini
+
 # Pre-pass: automatically filter large repos before sending to AI
 prepass:
   enabled: true
@@ -282,7 +290,7 @@ schedule:
   friday: can_we_prove_it   # performance check
 ```
 
-Each audit will cycle through `provider_rotation`: first run uses Anthropic, second uses Gemini, third uses OpenAI, then repeat. See [Key Options](#key-options) for all configuration.
+Each audit will cycle through `provider_rotation`: first run uses Anthropic (with default model), second uses Gemini (with `gemini-2.0-flash`), third uses OpenAI (with `gpt-5-mini`), then repeat. Use `providers.<name>.model` to set provider-specific models that override the global `model` setting. See [Key Options](#key-options) for all configuration.
 
 ### Supported Models
 
