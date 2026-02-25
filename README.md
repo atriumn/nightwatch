@@ -227,40 +227,71 @@ Commit your decisions file to share across the team.
 
 Reports are saved as markdown in `.noxaudit/reports/{repo}/{date}-{focus}.md`.
 
-## Multi-Provider Support
+## Providers
 
-Rotate between providers to get different perspectives:
+Noxaudit supports multiple AI providers. Rotate between them to get different perspectives, or choose one per your preference and budget.
 
-```yaml
-repos:
-  - name: my-app
-    provider_rotation: [anthropic, openai, gemini]
-```
+**Provider strengths:**
 
-Different models catch different things. Claude is strong on security reasoning, GPT excels at structured analysis, Gemini can ingest massive codebases in a single pass.
+| Provider | Strength | Best For |
+|----------|----------|----------|
+| **Anthropic** | Stronger security reasoning, native batch API support | Security-focused audits, batch processing |
+| **Gemini** | Larger context window, lower cost | Large repos, cost optimization |
+| **OpenAI** | Fast, structured analysis | Quick turnarounds, diverse analysis |
 
-**Supported providers:**
+### Basic Setup
 
-| Provider | Model | Input/M | Notes |
-|----------|-------|---------|-------|
-| **Anthropic** | `claude-sonnet-4-5-20250929` | $3.00 | Default. Strong security reasoning, batch API. |
-| **OpenAI** | `gpt-5.2` | $1.75 | Cheaper than Claude Sonnet, 400K context window. Good default for OpenAI users. |
-| **OpenAI** | `gpt-5-mini` | $0.25 | Budget option, comparable to Gemini Flash pricing. |
-| **OpenAI** | `gpt-5-nano` | $0.05 | Cheapest option available. Good for high-frequency runs. |
-| **Gemini** | `gemini-2.0-flash` | $0.10 | Massive context window, fast. |
-
-Set your API key for the provider(s) you use:
+Set your API keys:
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
 export GOOGLE_API_KEY=...
 ```
 
-Install optional provider dependencies:
+Install optional provider dependencies (Anthropic is built-in):
 ```bash
 pip install 'noxaudit[openai]'   # OpenAI
 pip install 'noxaudit[google]'   # Gemini
 ```
+
+### Example: Multi-Provider Setup with Pre-pass
+
+Rotate between providers and enable pre-pass filtering:
+
+```yaml
+repos:
+  - name: my-app
+    path: .
+    provider_rotation: [anthropic, gemini, openai]
+    exclude: [vendor, generated, node_modules]
+
+# Use Anthropic by default
+model: claude-sonnet-4-5-20250929
+
+# Pre-pass: automatically filter large repos before sending to AI
+prepass:
+  enabled: true
+  threshold_tokens: 600_000  # Auto-enable if codebase exceeds this
+  auto: true
+
+# Rotate through different providers each audit run
+schedule:
+  monday: does_it_work      # security + testing
+  wednesday: does_it_work   # second run with different provider
+  friday: can_we_prove_it   # performance check
+```
+
+Each audit will cycle through `provider_rotation`: first run uses Anthropic, second uses Gemini, third uses OpenAI, then repeat. See [Key Options](#key-options) for all configuration.
+
+### Supported Models
+
+| Provider | Model | Input/M | Output/M |
+|----------|-------|---------|----------|
+| **Anthropic** | `claude-sonnet-4-5-20250929` | $3.00 | $15.00 |
+| **OpenAI** | `gpt-5.2` | $1.75 | $7.00 |
+| **OpenAI** | `gpt-5-mini` | $0.25 | $1.00 |
+| **OpenAI** | `gpt-5-nano` | $0.05 | $0.15 |
+| **Gemini** | `gemini-2.0-flash` | $0.10 | $0.40 |
 
 ## License
 
