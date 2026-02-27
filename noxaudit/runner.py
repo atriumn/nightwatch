@@ -126,6 +126,7 @@ def submit_audit(
     repo_name: str | None = None,
     focus_name: str | None = None,
     provider_name: str | None = None,
+    model_name: str | None = None,
     dry_run: bool = False,
 ) -> dict | None:
     """Submit batch audit(s). Returns pending batch info to be retrieved later."""
@@ -149,7 +150,7 @@ def submit_audit(
     }
 
     for repo in repos:
-        batch_info = _submit_repo(config, repo, focus_names, provider_name, dry_run)
+        batch_info = _submit_repo(config, repo, focus_names, provider_name, model_name, dry_run)
         if batch_info:
             pending["batches"].append(batch_info)
 
@@ -206,6 +207,7 @@ def run_audit(
     repo_name: str | None = None,
     focus_name: str | None = None,
     provider_name: str | None = None,
+    model_name: str | None = None,
     dry_run: bool = False,
     output_format: str = "markdown",
 ) -> list[AuditResult]:
@@ -223,7 +225,9 @@ def run_audit(
 
     results = []
     for repo in repos:
-        result = _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_format)
+        result = _run_repo_sync(
+            config, repo, focus_names, provider_name, model_name, dry_run, output_format
+        )
         results.append(result)
 
     return results
@@ -259,7 +263,7 @@ def _mark_retrieved(pending: dict) -> None:
     )
 
 
-def _submit_repo(config, repo, focus_names, provider_name, dry_run):
+def _submit_repo(config, repo, focus_names, provider_name, model_name, dry_run):
     """Submit a batch for one repo. Returns batch info dict."""
     label = _focus_label(focus_names)
     focus_instances = [FOCUS_AREAS[name]() for name in focus_names]
@@ -296,7 +300,7 @@ def _submit_repo(config, repo, focus_names, provider_name, dry_run):
         print(f"[{repo.name}] Decision context: {len(decisions)} prior decisions")
         return None
 
-    provider = PROVIDERS[pname](model=config.model)
+    provider = PROVIDERS[pname](model=model_name or config.model)
 
     # Execute pre-pass if triggered — classify files into tiers and enrich content
     if should_run_prepass:
@@ -423,7 +427,9 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format
     return audit_result
 
 
-def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_format="markdown"):
+def _run_repo_sync(
+    config, repo, focus_names, provider_name, model_name, dry_run, output_format="markdown"
+):
     """Run audit synchronously — submits batch, polls until done."""
     label = _focus_label(focus_names)
     focus_instances = [FOCUS_AREAS[name]() for name in focus_names]
@@ -467,7 +473,7 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
             timestamp=datetime.now().isoformat(),
         )
 
-    provider = PROVIDERS[pname](model=config.model)
+    provider = PROVIDERS[pname](model=model_name or config.model)
 
     # Execute pre-pass if triggered (should_run_prepass assigned above via _maybe_prepass).
     # Classifies files into tiers (full/snippet/map) and enriches content accordingly.

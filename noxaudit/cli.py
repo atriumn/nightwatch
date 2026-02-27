@@ -151,6 +151,7 @@ def main(ctx, config_path):
 @click.option("--repo", "-r", default=None, help="Audit a specific repo (default: all)")
 @click.option("--focus", "-f", default=None, help="Focus area(s): name, comma-separated, or 'all'")
 @click.option("--provider", "-p", default=None, help="AI provider (default: from config)")
+@click.option("--model", "-m", default=None, help="AI model to use (overrides config)")
 @click.option("--dry-run", is_flag=True, help="Show what would be audited without calling AI")
 @click.option(
     "--format",
@@ -161,7 +162,7 @@ def main(ctx, config_path):
     help="Output format: markdown (default) or sarif (for GitHub Code Scanning)",
 )
 @click.pass_context
-def run(ctx, repo, focus, provider, dry_run, output_format):
+def run(ctx, repo, focus, provider, model, dry_run, output_format):
     """Run an audit."""
     config = load_config(ctx.obj["config_path"])
     results = run_audit(
@@ -169,6 +170,7 @@ def run(ctx, repo, focus, provider, dry_run, output_format):
         repo_name=repo,
         focus_name=focus,
         provider_name=provider,
+        model_name=model,
         dry_run=dry_run,
         output_format=output_format,
     )
@@ -184,13 +186,19 @@ def run(ctx, repo, focus, provider, dry_run, output_format):
 @click.option("--repo", "-r", default=None, help="Audit a specific repo (default: all)")
 @click.option("--focus", "-f", default=None, help="Focus area(s): name, comma-separated, or 'all'")
 @click.option("--provider", "-p", default=None, help="AI provider (default: from config)")
+@click.option("--model", "-m", default=None, help="AI model to use (overrides config)")
 @click.option("--dry-run", is_flag=True, help="Show what would be audited without calling AI")
 @click.pass_context
-def submit(ctx, repo, focus, provider, dry_run):
+def submit(ctx, repo, focus, provider, model, dry_run):
     """Submit a batch audit (returns immediately, results retrieved later)."""
     config = load_config(ctx.obj["config_path"])
     pending = submit_audit(
-        config, repo_name=repo, focus_name=focus, provider_name=provider, dry_run=dry_run
+        config,
+        repo_name=repo,
+        focus_name=focus,
+        provider_name=provider,
+        model_name=model,
+        dry_run=dry_run,
     )
 
     if pending and pending["batches"]:

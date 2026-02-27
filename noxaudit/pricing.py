@@ -34,6 +34,17 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         cache_read_per_million=0.50,  # 10% of $5.00/M input
         cache_write_per_million=6.25,  # 125% of $5.00/M input
     ),
+    "claude-sonnet-4-6": ModelPricing(
+        input_per_million=3.00,
+        output_per_million=15.00,
+        tier_threshold=200_000,
+        input_per_million_high=6.00,
+        output_per_million_high=22.50,
+        batch_discount=0.50,
+        context_window=200_000,
+        cache_read_per_million=0.30,  # 10% of $3.00/M input
+        cache_write_per_million=3.75,  # 125% of $3.00/M input
+    ),
     "claude-sonnet-4-5": ModelPricing(
         input_per_million=3.00,
         output_per_million=15.00,
@@ -44,6 +55,17 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         context_window=200_000,
         cache_read_per_million=0.30,  # 10% of $3.00/M input
         cache_write_per_million=3.75,  # 125% of $3.00/M input
+    ),
+    "claude-haiku-4-5": ModelPricing(
+        input_per_million=0.80,
+        output_per_million=4.00,
+        tier_threshold=None,
+        input_per_million_high=None,
+        output_per_million_high=None,
+        batch_discount=0.50,
+        context_window=200_000,
+        cache_read_per_million=0.08,  # 10% of $0.80/M input
+        cache_write_per_million=1.00,  # 125% of $0.80/M input
     ),
     "gemini-2.5-pro": ModelPricing(
         input_per_million=1.25,
@@ -133,7 +155,9 @@ FOCUS_FRAMES: dict[str, str] = {
 # Provider name for each model key
 _MODEL_PROVIDER: dict[str, str] = {
     "claude-opus-4-6": "anthropic",
+    "claude-sonnet-4-6": "anthropic",
     "claude-sonnet-4-5": "anthropic",
+    "claude-haiku-4-5": "anthropic",
     "gemini-2.5-pro": "gemini",
     "gemini-2.5-flash": "gemini",
     "gemini-3-flash": "gemini",
@@ -156,6 +180,10 @@ def resolve_model_key(provider: str, model: str) -> str:
     if provider == "anthropic":
         if "opus" in model_lower:
             return "claude-opus-4-6"
+        if "haiku" in model_lower:
+            return "claude-haiku-4-5"
+        if "sonnet" in model_lower and ("4-6" in model_lower or "4.6" in model_lower):
+            return "claude-sonnet-4-6"
         return "claude-sonnet-4-5"
     elif provider == "gemini":
         if "3" in model_lower and "flash" in model_lower:
