@@ -52,6 +52,15 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         batch_discount=0.50,
         context_window=1_000_000,
     ),
+    "gemini-3.1-pro-preview": ModelPricing(
+        input_per_million=2.00,
+        output_per_million=12.00,
+        tier_threshold=200_000,
+        input_per_million_high=4.00,
+        output_per_million_high=18.00,
+        batch_discount=0.50,
+        context_window=1_000_000,
+    ),
     "gemini-2.5-flash": ModelPricing(
         input_per_million=0.30,
         output_per_million=2.50,
@@ -70,7 +79,7 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         batch_discount=0.50,
         context_window=1_000_000,
     ),
-    "gemini-2.0-flash": ModelPricing(
+    "gemini-2.5-flash-lite": ModelPricing(
         input_per_million=0.10,
         output_per_million=0.40,
         tier_threshold=None,
@@ -124,7 +133,8 @@ _MODEL_PROVIDER: dict[str, str] = {
     "gemini-2.5-pro": "gemini",
     "gemini-2.5-flash": "gemini",
     "gemini-3-flash": "gemini",
-    "gemini-2.0-flash": "gemini",
+    "gemini-2.5-flash-lite": "gemini",
+    "gemini-3.1-pro-preview": "gemini",
     "gpt-5.2": "openai",
     "gpt-5": "openai",
     "gpt-5-mini": "openai",
@@ -145,20 +155,24 @@ def resolve_model_key(provider: str, model: str) -> str:
             return "claude-opus-4-6"
         return "claude-sonnet-4-5"
     elif provider == "gemini":
+        if "3.1" in model_lower and "pro" in model_lower:
+            return "gemini-3.1-pro-preview"
         if "3" in model_lower and "flash" in model_lower:
             return "gemini-3-flash"
         if "pro" in model_lower:
             return "gemini-2.5-pro"
         if "2.5" in model or "2-5" in model:
+            if "lite" in model_lower:
+                return "gemini-2.5-flash-lite"
             return "gemini-2.5-flash"
-        return "gemini-2.0-flash"
+        return "gemini-2.5-flash-lite"
     elif provider == "openai":
         if "nano" in model_lower:
             return "gpt-5-nano"
         if "mini" in model_lower:
             return "gpt-5-mini"
         return "gpt-5.2"
-    return "gemini-2.0-flash"
+    return "gemini-2.5-flash-lite"
 
 
 def estimate_cost(
