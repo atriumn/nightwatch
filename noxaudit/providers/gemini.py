@@ -50,7 +50,7 @@ FINDING_SCHEMA = {
 class GeminiProvider(BaseProvider):
     name = "gemini"
 
-    def __init__(self, model: str = "gemini-2.0-flash"):
+    def __init__(self, model: str = "gemini-2.5-flash-lite"):
         if genai is None:
             raise ImportError(
                 "google-genai is not installed. Install with: pip install google-genai"
