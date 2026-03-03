@@ -22,11 +22,11 @@ from noxaudit.pricing import (
 
 class TestEstimateCost:
     def test_zero_tokens(self):
-        pricing = MODEL_PRICING["gemini-2.0-flash"]
+        pricing = MODEL_PRICING["gemini-2.5-flash-lite"]
         assert estimate_cost(0, 0, pricing, use_batch=False) == 0.0
 
     def test_flat_pricing(self):
-        pricing = MODEL_PRICING["gemini-2.0-flash"]  # $0.10/M input, $0.40/M output
+        pricing = MODEL_PRICING["gemini-2.5-flash-lite"]  # $0.10/M input, $0.40/M output
         cost = estimate_cost(1_000_000, 100_000, pricing, use_batch=False)
         expected = 0.10 + 0.04  # $0.10 * (1M/1M) + $0.40 * (100K/1M)
         assert abs(cost - expected) < 0.001
@@ -147,7 +147,7 @@ class TestEstimatePrepassReduction:
 # ---------------------------------------------------------------------------
 
 
-def _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini"):
+def _write_config(tmp_path, model="gemini-2.5-flash-lite", provider="gemini"):
     config = {
         "repos": [{"name": "test-repo", "path": str(tmp_path), "provider_rotation": [provider]}],
         "model": model,
@@ -160,7 +160,7 @@ def _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini"):
 class TestEstimateCLI:
     def test_basic_output_gemini(self, tmp_path):
         (tmp_path / "app.py").write_text("x = 1\n" * 100)
-        cfg = _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini")
+        cfg = _write_config(tmp_path, model="gemini-2.5-flash-lite", provider="gemini")
         runner = CliRunner()
         result = runner.invoke(main, ["--config", cfg, "estimate", "--focus", "security"])
         assert result.exit_code == 0, result.output
@@ -170,7 +170,7 @@ class TestEstimateCLI:
 
     def test_shows_files_and_tokens(self, tmp_path):
         (tmp_path / "app.py").write_text("x = 1\n" * 200)
-        cfg = _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini")
+        cfg = _write_config(tmp_path, model="gemini-2.5-flash-lite", provider="gemini")
         runner = CliRunner()
         result = runner.invoke(main, ["--config", cfg, "estimate", "--focus", "security"])
         assert result.exit_code == 0, result.output
@@ -204,7 +204,7 @@ class TestEstimateCLI:
                             "provider_rotation": ["gemini"],
                         }
                     ],
-                    "model": "gemini-2.0-flash",
+                    "model": "gemini-2.5-flash-lite",
                 }
             )
         )
@@ -219,7 +219,7 @@ class TestEstimateCLI:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        cfg = _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini")
+        cfg = _write_config(tmp_path, model="gemini-2.5-flash-lite", provider="gemini")
         runner = CliRunner()
         result = runner.invoke(main, ["--config", cfg, "estimate", "--focus", "security"])
         assert result.exit_code == 0, result.output
@@ -244,7 +244,7 @@ class TestEstimateCLI:
     def test_provider_override(self, tmp_path):
         """--provider flag overrides config provider."""
         (tmp_path / "app.py").write_text("x = 1\n" * 100)
-        cfg = _write_config(tmp_path, model="gemini-2.0-flash", provider="gemini")
+        cfg = _write_config(tmp_path, model="gemini-2.5-flash-lite", provider="gemini")
         runner = CliRunner()
         result = runner.invoke(
             main, ["--config", cfg, "estimate", "--focus", "security", "--provider", "gemini"]
