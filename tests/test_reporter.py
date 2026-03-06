@@ -25,7 +25,7 @@ class TestFocusDisplay:
 class TestGenerateReport:
     def test_single_focus_title(self, sample_result):
         report = generate_report(sample_result)
-        assert "# Nightwatch Report: Security" in report
+        assert "# Noxaudit Report: Security" in report
 
     def test_combined_focus_title(self, combined_result):
         report = generate_report(combined_result)
