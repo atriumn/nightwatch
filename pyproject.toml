@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 authors = [
     { name = "Atriumn", email = "hello@atriumn.com" },
 ]
-keywords = ["ai", "code-review", "audit", "security", "codebase", "nightwatch"]
+keywords = ["ai", "code-review", "audit", "security", "codebase", "noxaudit"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
