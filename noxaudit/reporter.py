@@ -16,7 +16,7 @@ def _focus_display(focus: str) -> str:
 def generate_report(result: AuditResult) -> str:
     """Generate a markdown report from audit results."""
     lines = [
-        f"# Nightwatch Report: {_focus_display(result.focus)}",
+        f"# Noxaudit Report: {_focus_display(result.focus)}",
         "",
         f"- **Repo**: {result.repo}",
         f"- **Focus**: {_focus_display(result.focus)}",
