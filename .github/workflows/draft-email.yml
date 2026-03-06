@@ -16,6 +16,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: Extract version from PR title
         id: version
