@@ -1,5 +1,5 @@
 name: 'Noxaudit'
-description: 'Nightly AI-powered codebase audits with rotating focus areas'
+description: 'AI-powered codebase audits with rotating focus areas'
 branding:
   icon: 'shield'
   color: 'blue'

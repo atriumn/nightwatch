@@ -1,3 +1,3 @@
-"""Noxaudit: Nightly AI-powered codebase audits."""
+"""Noxaudit: AI-powered codebase audits."""
 
 __version__ = "1.1.1"
