@@ -32,9 +32,9 @@ noxaudit run
 noxaudit run --focus all
 ```
 
-## Daily CI with GitHub Actions
+## Scheduled Runs with GitHub Actions
 
-Run a full audit every morning:
+Run a full audit on a schedule (e.g., daily):
 
 ```yaml
 name: Noxaudit Audit

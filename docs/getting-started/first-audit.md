@@ -130,9 +130,9 @@ Cost (last 30 days):
   Projected monthly:   ~$4.20
 ```
 
-## Step 7: Set Up Nightly Runs
+## Step 7: Automate Your Audits
 
-Once you're happy with the results, automate it. See the [GitHub Actions integration](../integrations/github-actions.md) or set up a cron job:
+Once you're happy with the results, you can optionally automate it. See the [GitHub Actions integration](../integrations/github-actions.md) or set up a cron job:
 
 ```bash
 # Run all focus areas daily at 6 AM
