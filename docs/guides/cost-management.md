@@ -1,6 +1,6 @@
 # Cost Management
 
-Noxaudit is designed to be cheap enough to run daily. This guide covers estimation, budget controls, cost tracking, and optimization strategies.
+Noxaudit is designed to be cheap enough to run frequently. This guide covers estimation, budget controls, cost tracking, and optimization strategies.
 
 ## Estimating Cost
 
@@ -16,7 +16,7 @@ noxaudit estimate --focus security
   Files:     42 files, 87K tokens
   Provider:  openai (gpt-5-mini)
 
-  Cost estimate: ~$0.03
+  Cost estimate: ~$0.03 per run
     Batch API 50% discount applied.
 
   Alternatives:
@@ -24,16 +24,16 @@ noxaudit estimate --focus security
     gemini (gemini-2.5-flash)                ~$0.03   similar cost
     anthropic (claude-sonnet-4-6)            ~$0.14   more expensive — deeper analysis
 
-  Monthly estimate: ~$0.90 (assuming daily runs)
-  Monthly with gpt-5-nano: ~$0.30
+  Running daily: ~$0.90/month
+  Running daily with gpt-5-nano: ~$0.30/month
 ```
 
 The estimate includes:
 
 - File and token counts
-- Cost with your current model (including batch discounts)
+- Cost per run with your current model (including batch discounts)
 - Cheaper alternatives with savings percentages
-- Monthly projection assuming daily runs
+- Monthly cost projections based on different run frequencies
 - Pre-pass potential for large codebases
 
 ## Budget Controls
@@ -76,9 +76,9 @@ Cost tracking uses retroactive repricing — stored token counts are recalculate
 
 ## Optimization Strategies
 
-### 1. Use gpt-5-mini for Daily Audits
+### 1. Use gpt-5-mini for Frequent Audits
 
-Our [benchmark](../benchmark.md) showed gpt-5-mini ($0.03/run) hits 5/6 cross-model consensus issues with minimal noise — the best daily value of all 10 models tested:
+Our [benchmark](../benchmark.md) showed gpt-5-mini ($0.03/run) hits 5/6 cross-model consensus issues with minimal noise — excellent value for frequent runs:
 
 ```yaml
 repos:
