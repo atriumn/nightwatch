@@ -1,5 +1,5 @@
 site_name: Noxaudit
-site_url: https://noxaudit.com
+site_url: https://docs.noxaudit.com
 site_description: Nightly AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.
 repo_url: https://github.com/atriumn/noxaudit
 repo_name: atriumn/noxaudit
