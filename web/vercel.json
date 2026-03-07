@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "redirects": [
+    { "source": "/getting-started/:path*", "destination": "https://docs.noxaudit.com/getting-started/:path*", "permanent": false },
+    { "source": "/guides/:path*", "destination": "https://docs.noxaudit.com/guides/:path*", "permanent": false },
+    { "source": "/integrations/:path*", "destination": "https://docs.noxaudit.com/integrations/:path*", "permanent": false },
+    { "source": "/reference/:path*", "destination": "https://docs.noxaudit.com/reference/:path*", "permanent": false },
+    { "source": "/contributing/:path*", "destination": "https://docs.noxaudit.com/contributing/:path*", "permanent": false },
+    { "source": "/changelog", "destination": "https://docs.noxaudit.com/changelog/", "permanent": false }
+  ]
+}

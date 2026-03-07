@@ -25,5 +25,7 @@ jobs:
           draft-path: drafts/v${{ steps.version.outputs.value }}.md
           from-email: ${{ secrets.FROM_EMAIL }}
           email-provider: resend
-          subscriber-store: json
+          subscriber-store: gist
           email-api-key: ${{ secrets.RESEND_API_KEY }}
+          github-gist-id: ${{ secrets.SUBSCRIBER_GIST_ID }}
+          github-token: ${{ secrets.SUBSCRIBER_GIST_TOKEN }}
