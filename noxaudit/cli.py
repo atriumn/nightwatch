@@ -141,7 +141,7 @@ def _display_cost_summary() -> None:
 @click.option("--config", "-c", "config_path", default=None, help="Path to noxaudit.yml")
 @click.pass_context
 def main(ctx, config_path):
-    """Noxaudit: Nightly AI-powered codebase audits."""
+    """Noxaudit: AI-powered codebase audits."""
     ctx.ensure_object(dict)
     ctx.obj["config_path"] = config_path
 

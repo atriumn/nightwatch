@@ -9,7 +9,7 @@ hide:
 
 # Noxaudit
 
-**Nightly AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.**
+**AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.**
 
 [Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/atriumn/noxaudit){ .md-button }
