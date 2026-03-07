@@ -10,11 +10,11 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-<p align="center">Nightly AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.</p>
+<p align="center">AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.</p>
 
 **The problem**: Codebases drift. Security issues creep in, docs go stale, patterns diverge, dead code accumulates. Linters catch syntax — they miss semantics.
 
-**The solution**: Noxaudit runs a focused AI audit every night, rotating through different concerns. It remembers what you've already reviewed so only genuinely new findings surface.
+**The solution**: Noxaudit runs focused AI audits, rotating through different concerns. It remembers what you've already reviewed so only genuinely new findings surface.
 
 ## How It Works
 
