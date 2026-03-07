@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/atriumn/noxaudit/compare/v1.1.0...v1.1.1) (2026-03-07)
+
+
+### Miscellaneous
+
+* remove ralph dev artifacts and improve gitignore ([8efbbd6](https://github.com/atriumn/noxaudit/commit/8efbbd6965879a1c8ebc66aa92fd36acea6e6c93))
+
+
+### Documentation
+
+* add SECURITY.md, CODE_OF_CONDUCT.md, and issue templates ([c31bf08](https://github.com/atriumn/noxaudit/commit/c31bf08a6fec02ba46be70c5162dc8b719a45e1a))
+
 ## [1.1.0](https://github.com/atriumn/noxaudit/compare/v1.0.1...v1.1.0) (2026-03-07)
 
 
