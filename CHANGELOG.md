@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/atriumn/noxaudit/compare/v1.0.1...v1.1.0) (2026-03-07)
+
+
+### Features
+
+* add Next.js marketing site and migrate docs to subdomain ([fcb27bf](https://github.com/atriumn/noxaudit/commit/fcb27bf584411c95e0cc6f62749bed5f8e519788))
+
+
+### Bug Fixes
+
+* **test:** remove brittle version prefix assertion in SARIF test ([caf8ae3](https://github.com/atriumn/noxaudit/commit/caf8ae34217c812b05073178e6f4f4c318b60a91))
+
 ## [1.0.1](https://github.com/atriumn/noxaudit/compare/v1.0.0...v1.0.1) (2026-03-06)
 
 
