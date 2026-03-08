@@ -231,7 +231,7 @@ class TestEstimateCLI:
         runner = CliRunner()
         result = runner.invoke(main, ["--config", cfg, "estimate", "--focus", "security"])
         assert result.exit_code == 0, result.output
-        assert "assuming daily runs" in result.output
+        assert "if run daily" in result.output
 
     def test_no_repos_configured(self, tmp_path):
         cfg_path = tmp_path / "noxaudit.yml"
