@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3](https://github.com/atriumn/noxaudit/compare/v1.1.2...v1.1.3) (2026-03-08)
+
+
+### Bug Fixes
+
+* remove "daily" assumptions from pricing.py output ([#109](https://github.com/atriumn/noxaudit/issues/109)) ([e246fee](https://github.com/atriumn/noxaudit/commit/e246feefcc0ce70819aa5eeea108660cbe03ed1b))
+
 ## [1.1.2](https://github.com/atriumn/noxaudit/compare/v1.1.1...v1.1.2) (2026-03-07)
 
 
