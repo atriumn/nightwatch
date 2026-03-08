@@ -348,7 +348,7 @@ def build_estimate_report(
             desc = f"{alt_provider} ({alt_key})"
             note = ""
             if alt_provider == "gemini" and savings_pct >= 90:
-                note = " — recommended for daily audits"
+                note = " — best value"
             elif "sonnet" in alt_key:
                 note = " — similar quality, lower cost"
             lines.append(f"    {desc:<38} ~${alt_cost:.2f}   {savings_pct}% cheaper{note}")
@@ -379,10 +379,10 @@ def build_estimate_report(
         )
         lines.append("")
 
-    # Monthly projection (assuming daily runs)
+    # Monthly projection (if run daily)
     monthly_runs = 30
     monthly_cost = cost * monthly_runs
-    lines.append(f"  Monthly estimate: ~${monthly_cost:.2f} (assuming daily runs)")
+    lines.append(f"  Monthly estimate: ~${monthly_cost:.2f} (if run daily)")
 
     if alternatives:
         cheapest_key, cheapest_provider, cheapest_cost, _ = alternatives[0]
@@ -396,11 +396,9 @@ def build_estimate_report(
         cheapest_key, cheapest_provider, cheapest_cost, _ = alternatives[0]
         if cheapest_provider == "gemini":
             lines.append(
-                f"  Recommendation: Use gemini for daily audits (~${cheapest_cost:.2f}/run)."
+                f"  Recommendation: {cheapest_key} offers significantly lower cost (~${cheapest_cost:.2f}/run)."
             )
-            lines.append(
-                "  Reserve anthropic for monthly deep dives where finding depth matters most."
-            )
+            lines.append("  Reserve anthropic for deep dives where finding depth matters most.")
             lines.append("")
 
     return "\n".join(lines)
