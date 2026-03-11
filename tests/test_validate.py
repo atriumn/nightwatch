@@ -67,6 +67,19 @@ class TestValidateFinding:
             result = validate_finding(finding, "code", "openai", "gpt-5-mini")
         assert result.confidence == "medium"
 
+    def test_list_response_extracts_first(self):
+        finding = _f()
+        response = [{"confidence": "high", "reason": "real"}]
+        with patch("noxaudit.validate._call_provider", return_value=response):
+            result = validate_finding(finding, "code", "openai", "gpt-5-mini")
+        assert result.confidence == "high"
+
+    def test_non_dict_response_defaults_medium(self):
+        finding = _f()
+        with patch("noxaudit.validate._call_provider", return_value="garbage"):
+            result = validate_finding(finding, "code", "openai", "gpt-5-mini")
+        assert result.confidence == "medium"
+
 
 class TestValidateFindings:
     def test_empty_returns_empty(self):

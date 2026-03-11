@@ -99,6 +99,15 @@ def validate_finding(
         print(f"[validate] LLM call failed for {finding.id} ({exc})", file=sys.stderr)
         return ValidatedFinding(finding=finding, confidence="medium", reason="validation failed")
 
+    # _call_provider may return a list (batch of results) — take first dict
+    if isinstance(response, list):
+        response = response[0] if response and isinstance(response[0], dict) else {}
+
+    if not isinstance(response, dict):
+        return ValidatedFinding(
+            finding=finding, confidence="medium", reason="unexpected response format"
+        )
+
     confidence = response.get("confidence", "medium")
     if confidence not in ("high", "medium", "low", "false_positive"):
         confidence = "medium"
