@@ -776,13 +776,11 @@ class TestDedupCLIIntegration:
 
         provider_cls, provider_instance = _make_mock_provider(findings)
 
-        # Mock the dedup LLM call to group the two findings
+        # Mock the dedup LLM call to map both findings to same canonical title
         dedup_response = {
-            "groups": [
-                {
-                    "canonical_title": "Unused variable x",
-                    "finding_ids": ["a1", "b2"],
-                }
+            "mappings": [
+                {"finding_id": "a1", "vocab_key": None, "canonical_title": "Unused variable x"},
+                {"finding_id": "b2", "vocab_key": None, "canonical_title": "Unused variable x"},
             ]
         }
 
