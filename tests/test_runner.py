@@ -5,10 +5,12 @@ from __future__ import annotations
 import pytest
 
 from noxaudit.config import NoxauditConfig, PrepassConfig, normalize_focus
-from noxaudit.models import FileContent
+from noxaudit.models import FileContent, Finding, Severity
 from noxaudit.runner import (
+    _chunk_files,
     _focus_label,
     _maybe_prepass,
+    _merge_findings,
     _resolve_focus_names,
     estimate_tokens,
 )
@@ -79,6 +81,78 @@ class TestEstimateTokens:
             FileContent(path="main.py", content="b" * 4000),
         ]
         assert estimate_tokens(files) == 2000
+
+
+def _make_finding(id: str, title: str = "test") -> Finding:
+    return Finding(
+        id=id,
+        severity=Severity.MEDIUM,
+        file="test.py",
+        line=1,
+        title=title,
+        description="desc",
+        suggestion="fix",
+        focus="security",
+    )
+
+
+class TestChunkFiles:
+    def test_no_chunking_when_zero(self):
+        files = [FileContent(path=f"f{i}.py", content="x") for i in range(10)]
+        chunks = _chunk_files(files, 0)
+        assert len(chunks) == 1
+        assert len(chunks[0]) == 10
+
+    def test_no_chunking_when_fewer_than_chunk_size(self):
+        files = [FileContent(path=f"f{i}.py", content="x") for i in range(5)]
+        chunks = _chunk_files(files, 10)
+        assert len(chunks) == 1
+
+    def test_even_split(self):
+        files = [FileContent(path=f"f{i}.py", content="x") for i in range(20)]
+        chunks = _chunk_files(files, 10)
+        assert len(chunks) == 2
+        assert len(chunks[0]) == 10
+        assert len(chunks[1]) == 10
+
+    def test_uneven_split(self):
+        files = [FileContent(path=f"f{i}.py", content="x") for i in range(15)]
+        chunks = _chunk_files(files, 10)
+        assert len(chunks) == 2
+        assert len(chunks[0]) == 10
+        assert len(chunks[1]) == 5
+
+    def test_all_files_preserved(self):
+        files = [FileContent(path=f"f{i}.py", content="x") for i in range(23)]
+        chunks = _chunk_files(files, 7)
+        all_paths = [f.path for chunk in chunks for f in chunk]
+        assert len(all_paths) == 23
+        assert len(set(all_paths)) == 23
+
+
+class TestMergeFindings:
+    def test_no_duplicates(self):
+        chunks = [
+            [_make_finding("a1"), _make_finding("a2")],
+            [_make_finding("b1"), _make_finding("b2")],
+        ]
+        merged = _merge_findings(chunks)
+        assert len(merged) == 4
+
+    def test_deduplicates_by_id(self):
+        chunks = [
+            [_make_finding("a1"), _make_finding("shared")],
+            [_make_finding("b1"), _make_finding("shared")],
+        ]
+        merged = _merge_findings(chunks)
+        assert len(merged) == 3
+        ids = [f.id for f in merged]
+        assert ids.count("shared") == 1
+
+    def test_empty_chunks(self):
+        chunks = [[], [_make_finding("a1")], []]
+        merged = _merge_findings(chunks)
+        assert len(merged) == 1
 
 
 class TestMaybePrepass:
