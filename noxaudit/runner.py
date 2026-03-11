@@ -442,6 +442,22 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format
         findings = result.get("findings", [])
         print(f"[{repo_name}] Got {len(findings)} findings")
 
+    # Validate findings against source code
+    if config.validate.enabled and findings:
+        from noxaudit.validate import validate_findings
+
+        repo_config = next((r for r in config.repos if r.name == repo_name), None)
+        original_count = len(findings)
+        findings = validate_findings(
+            findings,
+            config.validate,
+            repo_path=repo_config.path if repo_config else ".",
+            drop_false_positives=config.validate.drop_false_positives,
+            min_confidence=config.validate.min_confidence or None,
+        )
+        if len(findings) < original_count:
+            print(f"[{repo_name}] Validate: {original_count} → {len(findings)} findings")
+
     # Deduplicate findings for title stability across runs
     if config.dedup.enabled and findings:
         from noxaudit.dedup import deduplicate_findings
@@ -629,6 +645,21 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
             default_focus=default_focus,
         )
         print(f"[{repo.name}] Got {len(findings)} findings")
+
+    # Validate findings against source code
+    if config.validate.enabled and findings:
+        from noxaudit.validate import validate_findings
+
+        original_count = len(findings)
+        findings = validate_findings(
+            findings,
+            config.validate,
+            repo_path=repo.path,
+            drop_false_positives=config.validate.drop_false_positives,
+            min_confidence=config.validate.min_confidence or None,
+        )
+        if len(findings) < original_count:
+            print(f"[{repo.name}] Validate: {original_count} → {len(findings)} findings")
 
     # Deduplicate findings for title stability across runs
     if config.dedup.enabled and findings:

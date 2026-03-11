@@ -47,6 +47,17 @@ class IssuesConfig:
 
 
 @dataclass
+class ValidateConfig:
+    """Post-audit finding validation configuration."""
+
+    enabled: bool = False
+    provider: str = "gemini"
+    model: str = ""  # empty = use provider default
+    drop_false_positives: bool = True
+    min_confidence: str = ""  # "", "low", "medium", "high"
+
+
+@dataclass
 class DedupConfig:
     """Post-audit deduplication configuration."""
 
@@ -112,6 +123,7 @@ class NoxauditConfig:
     decisions: DecisionConfig = field(default_factory=DecisionConfig)
     issues: IssuesConfig = field(default_factory=IssuesConfig)
     prepass: PrepassConfig = field(default_factory=PrepassConfig)
+    validate: ValidateConfig = field(default_factory=ValidateConfig)
     dedup: DedupConfig = field(default_factory=DedupConfig)
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     reports_dir: str = ".noxaudit/reports"
@@ -211,6 +223,15 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         auto_disable=not prepass_raw.get("auto", True),
     )
 
+    validate_raw = raw.get("validate", {})
+    validate = ValidateConfig(
+        enabled=validate_raw.get("enabled", False),
+        provider=validate_raw.get("provider", "gemini"),
+        model=validate_raw.get("model", ""),
+        drop_false_positives=validate_raw.get("drop_false_positives", True),
+        min_confidence=validate_raw.get("min_confidence", ""),
+    )
+
     dedup_raw = raw.get("dedup", {})
     dedup = DedupConfig(
         enabled=dedup_raw.get("enabled", True),
@@ -230,6 +251,7 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         decisions=decisions,
         issues=issues,
         prepass=prepass,
+        validate=validate,
         dedup=dedup,
         providers=providers,
         reports_dir=raw.get("reports_dir", ".noxaudit/reports"),
