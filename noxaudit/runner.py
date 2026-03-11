@@ -345,6 +345,15 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format
     findings = result.get("findings", [])
     print(f"[{repo_name}] Got {len(findings)} findings")
 
+    # Deduplicate findings for title stability across runs
+    if config.dedup.enabled and findings:
+        from noxaudit.dedup import deduplicate_findings
+
+        original_count = len(findings)
+        findings = deduplicate_findings(findings, config.dedup)
+        if len(findings) < original_count:
+            print(f"[{repo_name}] Dedup: {original_count} → {len(findings)} findings")
+
     # Log cost ledger entry
     file_count = batch_info.get("file_count", 0)
     if file_count > 0:
@@ -489,6 +498,15 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
         default_focus=default_focus,
     )
     print(f"[{repo.name}] Got {len(findings)} findings")
+
+    # Deduplicate findings for title stability across runs
+    if config.dedup.enabled and findings:
+        from noxaudit.dedup import deduplicate_findings
+
+        original_count = len(findings)
+        findings = deduplicate_findings(findings, config.dedup)
+        if len(findings) < original_count:
+            print(f"[{repo.name}] Dedup: {original_count} → {len(findings)} findings")
 
     # Log cost ledger entry
     usage = provider.get_last_usage()

@@ -727,3 +727,125 @@ class TestGeminiBatchCLIIntegration:
 
         assert result.exit_code == 0, result.output
         assert "processing" in result.output.lower() or "No results ready" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Dedup pass wired into CLI
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.cli_integration
+class TestDedupCLIIntegration:
+    """Post-audit dedup pass runs after findings are returned."""
+
+    def test_dedup_runs_after_audit(self, tmp_path):
+        """When dedup.enabled (default), dedup pass runs and reduces duplicates."""
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        (repo_path / "app.py").write_text("x = 1\n")
+
+        config = {
+            "repos": [{"name": "test-repo", "path": str(repo_path)}],
+            "reports_dir": str(tmp_path / "reports"),
+            "dedup": {"enabled": True, "provider": "gemini"},
+        }
+        cfg_path = tmp_path / "noxaudit.yml"
+        cfg_path.write_text(yaml.dump(config))
+
+        # Two findings that are semantically the same issue
+        findings = [
+            Finding(
+                id="a1",
+                severity=Severity.MEDIUM,
+                file="app.py",
+                line=1,
+                title="Variable x is unused",
+                description="x is assigned but never used",
+                focus="hygiene",
+            ),
+            Finding(
+                id="b2",
+                severity=Severity.MEDIUM,
+                file="app.py",
+                line=1,
+                title="Unused variable x",
+                description="The variable x is never referenced",
+                focus="hygiene",
+            ),
+        ]
+
+        provider_cls, provider_instance = _make_mock_provider(findings)
+
+        # Mock the dedup LLM call to group the two findings
+        dedup_response = {
+            "groups": [
+                {
+                    "canonical_title": "Unused variable x",
+                    "finding_ids": ["a1", "b2"],
+                }
+            ]
+        }
+
+        runner = CliRunner()
+        with (
+            patch.dict("noxaudit.runner.PROVIDERS", {"gemini": provider_cls}),
+            patch("noxaudit.runner.save_latest_findings"),
+            patch("noxaudit.dedup._call_provider", return_value=dedup_response),
+        ):
+            result = runner.invoke(
+                main,
+                ["--config", str(cfg_path), "run", "--focus", "hygiene"],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Dedup:" in result.output
+
+    def test_dedup_disabled_skips(self, tmp_path):
+        """When dedup.enabled=false, findings pass through unchanged."""
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        (repo_path / "app.py").write_text("x = 1\n")
+
+        config = {
+            "repos": [{"name": "test-repo", "path": str(repo_path)}],
+            "reports_dir": str(tmp_path / "reports"),
+            "dedup": {"enabled": False},
+        }
+        cfg_path = tmp_path / "noxaudit.yml"
+        cfg_path.write_text(yaml.dump(config))
+
+        findings = [
+            Finding(
+                id="a1",
+                severity=Severity.MEDIUM,
+                file="app.py",
+                line=1,
+                title="Issue one",
+                description="desc",
+                focus="hygiene",
+            ),
+            Finding(
+                id="b2",
+                severity=Severity.MEDIUM,
+                file="app.py",
+                line=2,
+                title="Issue two",
+                description="desc",
+                focus="hygiene",
+            ),
+        ]
+
+        provider_cls, provider_instance = _make_mock_provider(findings)
+
+        runner = CliRunner()
+        with (
+            patch.dict("noxaudit.runner.PROVIDERS", {"gemini": provider_cls}),
+            patch("noxaudit.runner.save_latest_findings"),
+        ):
+            result = runner.invoke(
+                main,
+                ["--config", str(cfg_path), "run", "--focus", "hygiene"],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Dedup:" not in result.output

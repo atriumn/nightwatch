@@ -47,6 +47,15 @@ class IssuesConfig:
 
 
 @dataclass
+class DedupConfig:
+    """Post-audit deduplication configuration."""
+
+    enabled: bool = True
+    provider: str = "gemini"
+    model: str = ""  # empty = use provider default
+
+
+@dataclass
 class PrepassConfig:
     """Pre-pass configuration for file filtering before main audit."""
 
@@ -103,6 +112,7 @@ class NoxauditConfig:
     decisions: DecisionConfig = field(default_factory=DecisionConfig)
     issues: IssuesConfig = field(default_factory=IssuesConfig)
     prepass: PrepassConfig = field(default_factory=PrepassConfig)
+    dedup: DedupConfig = field(default_factory=DedupConfig)
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     reports_dir: str = ".noxaudit/reports"
     model: str = "claude-sonnet-4-5-20250929"
@@ -200,6 +210,13 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         auto_disable=not prepass_raw.get("auto", True),
     )
 
+    dedup_raw = raw.get("dedup", {})
+    dedup = DedupConfig(
+        enabled=dedup_raw.get("enabled", True),
+        provider=dedup_raw.get("provider", "gemini"),
+        model=dedup_raw.get("model", ""),
+    )
+
     providers: dict[str, ProviderConfig] = {}
     for provider_name, provider_cfg in raw.get("providers", {}).items():
         if isinstance(provider_cfg, dict):
@@ -212,6 +229,7 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         decisions=decisions,
         issues=issues,
         prepass=prepass,
+        dedup=dedup,
         providers=providers,
         reports_dir=raw.get("reports_dir", ".noxaudit/reports"),
         model=raw.get("model", "claude-sonnet-4-5-20250929"),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from abc import ABC, abstractmethod
@@ -35,6 +36,14 @@ class BaseProvider(ABC):
             "cache_read_tokens": 0,
             "cache_write_tokens": 0,
         }
+
+    @staticmethod
+    def make_finding_id(raw: dict) -> str:
+        """Generate a deterministic finding ID from finding metadata."""
+        key = f"{raw['file']}:{raw['title']}:{raw.get('line', '')}"
+        if raw.get("focus"):
+            key = f"{raw['focus']}:{key}"
+        return hashlib.sha256(key.encode()).hexdigest()[:12]
 
     @staticmethod
     def _safe_json_loads(text: str) -> dict:

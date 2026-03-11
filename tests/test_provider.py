@@ -31,26 +31,26 @@ class TestMakeFindingId:
 
     def test_stable_hash(self, provider):
         raw = {"file": "src/app.py", "title": "SQL injection", "line": 42}
-        id1 = provider._make_finding_id(raw)
-        id2 = provider._make_finding_id(raw)
+        id1 = provider.make_finding_id(raw)
+        id2 = provider.make_finding_id(raw)
         assert id1 == id2
         assert len(id1) == 12
 
     def test_different_inputs_different_ids(self, provider):
         a = {"file": "a.py", "title": "Bug A", "line": 1}
         b = {"file": "b.py", "title": "Bug B", "line": 2}
-        assert provider._make_finding_id(a) != provider._make_finding_id(b)
+        assert provider.make_finding_id(a) != provider.make_finding_id(b)
 
     def test_focus_changes_id(self, provider):
         base = {"file": "a.py", "title": "Bug", "line": 1}
         with_focus = {"file": "a.py", "title": "Bug", "line": 1, "focus": "security"}
-        id_without = provider._make_finding_id(base)
-        id_with = provider._make_finding_id(with_focus)
+        id_without = provider.make_finding_id(base)
+        id_with = provider.make_finding_id(with_focus)
         assert id_without != id_with
 
     def test_no_line_still_works(self, provider):
         raw = {"file": "a.py", "title": "Bug"}
-        fid = provider._make_finding_id(raw)
+        fid = provider.make_finding_id(raw)
         assert len(fid) == 12
 
 
