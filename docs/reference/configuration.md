@@ -10,7 +10,7 @@ All configuration lives in `noxaudit.yml` in your project root.
 | `repos[].name` | string | — | Repository display name |
 | `repos[].path` | string | — | Path to repository root |
 | `repos[].provider_rotation` | list[string] | `[gemini]` | AI providers to rotate through |
-| `repos[].exclude` | list[string] | `[]` | Directory names to exclude from file gathering |
+| `repos[].exclude` | list[string] | `[]` | Additional directory names to exclude from file gathering (see default excludes below) |
 | `model` | string | `claude-sonnet-4-6` | AI model to use (any supported model ID) |
 | `budget` | mapping | — | Cost control settings |
 | `budget.max_per_run_usd` | float | `2.00` | Maximum cost per audit run in USD |
@@ -33,6 +33,28 @@ All configuration lives in `noxaudit.yml` in your project root.
 | `prepass.enabled` | bool | `false` | Enable pre-pass file classification |
 | `prepass.threshold_tokens` | int | `600000` | Token count above which pre-pass activates |
 | `prepass.auto` | bool | `true` | Auto-enable pre-pass when token count exceeds threshold |
+| `dedup` | mapping | — | Post-audit deduplication settings |
+| `dedup.enabled` | bool | `true` | Enable LLM-based finding title normalization |
+| `dedup.provider` | string | `gemini` | Provider for dedup calls: `gemini`, `openai`, or `anthropic` |
+| `dedup.model` | string | `""` | Model for dedup (empty = provider default) |
+| `chunk_size` | int | `0` | Files per chunk (0 = no chunking). Splits large audits into smaller batches for thorough coverage. |
+
+## Default Excludes
+
+The following paths are **always excluded** from file gathering, regardless of config:
+
+`node_modules`, `.git`, `__pycache__`, `.venv`, `venv`, `dist`, `build`, `site`, `.noxaudit`, `.env`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `benchmark/results`, `htmlcov`, `egg-info`
+
+Use `repos[].exclude` to add project-specific exclusions on top of these:
+
+```yaml
+repos:
+  - name: my-app
+    path: .
+    exclude:
+      - vendor       # your vendored deps
+      - generated    # code-gen output
+```
 
 ## Example Configuration
 

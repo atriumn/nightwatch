@@ -38,7 +38,7 @@ repos:
 | `name` | Display name for the repo |
 | `path` | Path to the repository root (`.` for current directory) |
 | `provider_rotation` | AI providers to cycle through on each run |
-| `exclude` | Directory names to skip during file gathering |
+| `exclude` | Additional directory names to skip during file gathering (on top of [default excludes](../reference/configuration.md#default-excludes)) |
 
 You can audit multiple repos in a single config:
 
@@ -121,6 +121,27 @@ issues:
 ```
 
 See [GitHub Issues](../integrations/github-issues.md).
+
+## Dedup
+
+Post-audit deduplication normalizes finding titles to canonical forms, improving consistency across runs:
+
+```yaml
+dedup:
+  enabled: true        # on by default
+  provider: gemini     # gemini, openai, or anthropic
+  model: ""            # empty = provider default
+```
+
+## Chunking
+
+For repos with many files, chunking splits the audit into smaller batches so each gets thorough coverage:
+
+```yaml
+chunk_size: 10   # files per chunk (0 = disabled)
+```
+
+Each chunk runs as a separate batch API request. Findings are merged and deduplicated automatically.
 
 ## Pre-pass
 
