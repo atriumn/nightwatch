@@ -1,0 +1,444 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "focus": "all",
+    "run": 3,
+    "started_at": "2026-03-11T14:08:01.063651",
+    "completed_at": "2026-03-11T14:13:02.904387",
+    "wall_clock_seconds": 301.84,
+    "error": null
+  },
+  "tokens": {
+    "input": 131134,
+    "output": 7274,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.2513,
+  "findings_count": 42,
+  "findings": [
+    {
+      "id": "094bea89339e",
+      "severity": "high",
+      "file": "noxaudit/mcp/server.py",
+      "line": null,
+      "title": "MCP record_decision writes to hardcoded path without config",
+      "description": "The `record_decision` tool hardcodes `.noxaudit/decisions.jsonl` as the decisions path rather than reading from a loaded config. This bypasses any custom `decisions.path` configured in `noxaudit.yml` and may write to an unexpected location.",
+      "suggestion": "Load config in the tool or accept the decisions path as a parameter, similar to how `run_audit` loads config.",
+      "focus": "security"
+    },
+    {
+      "id": "1d4f1401cd6d",
+      "severity": "high",
+      "file": "noxaudit/mcp/server.py",
+      "line": null,
+      "title": "MCP run_audit tool executes arbitrary audit without authentication",
+      "description": "The `run_audit` MCP tool runs a full codebase audit (consuming API credits) when called by any MCP client. There is no authentication or rate-limiting on the MCP server, meaning any tool connected to the stdio transport can trigger costly API calls.",
+      "suggestion": "Document this risk clearly and consider adding a confirmation step or budget check before executing audits via MCP.",
+      "focus": "security"
+    },
+    {
+      "id": "6081ffbf3270",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "Telegram bot token logged indirectly via URL construction",
+      "description": "The bot token is embedded directly in the URL string: `f'https://api.telegram.org/bot{token}/sendMessage'`. If any HTTP debug logging or proxy intercepts the request, the full URL including the token will be logged.",
+      "suggestion": "Pass the token as a header or path parameter that is masked in logs, or at minimum document that HTTP debug logging should be disabled in production.",
+      "focus": "security"
+    },
+    {
+      "id": "4e5bccc56008",
+      "severity": "medium",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "Shell command injection risk via subprocess with user-controlled strings",
+      "description": "The `_create_issue` function constructs a `gh issue create` command where `title`, `body`, `labels`, and `assignees` come from AI-generated findings. While `subprocess.run` with a list (not `shell=True`) is used, extremely long or specially crafted strings from AI output could cause unexpected behavior. More critically, the `labels` list built as `list(config.labels) + [f'noxaudit:{severity}']` passes user-configurable label values directly.",
+      "suggestion": "Validate and sanitize all values passed to subprocess arguments; truncate title/body lengths; restrict labels to alphanumeric characters.",
+      "focus": "security"
+    },
+    {
+      "id": "ea3cae51ccce",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "JSON parsing of AI response without error handling",
+      "description": "In `_parse_response` and `_build_user_message`, `json.loads(text.strip())` is called without a try/except. If the AI returns malformed JSON (or an error message), this raises an unhandled `json.JSONDecodeError` that propagates up and crashes the audit run.",
+      "suggestion": "Wrap `json.loads` in try/except JSONDecodeError and return an empty findings list with a warning log when parsing fails.",
+      "focus": "security"
+    },
+    {
+      "id": "10b5e496fcfd",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": null,
+      "title": "JSON parsing of AI response without error handling",
+      "description": "Both `_parse_text` and `_parse_response` call `json.loads(text.strip())` without a try/except. A malformed or unexpected response from the Gemini API will raise an unhandled `json.JSONDecodeError`.",
+      "suggestion": "Wrap `json.loads` in try/except JSONDecodeError and return an empty findings list with a warning.",
+      "focus": "security"
+    },
+    {
+      "id": "c97bf42735b2",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": null,
+      "title": "JSON parsing of AI response without error handling",
+      "description": "`_parse_text` calls `json.loads(text.strip())` without error handling. An unexpected response from the OpenAI API will crash the audit.",
+      "suggestion": "Wrap `json.loads` in try/except JSONDecodeError.",
+      "focus": "security"
+    },
+    {
+      "id": "4f7ac57581bc",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": null,
+      "title": "Path traversal risk: repo path from config expanded without validation",
+      "description": "`os.path.expanduser(r['path'])` is applied to the repo path from YAML config, which is then passed to file-gathering functions that recursively glob the filesystem. A misconfigured or malicious config pointing to `/` or `~` could cause the tool to read and transmit the entire filesystem to an AI provider.",
+      "suggestion": "Validate that the resolved repo path is within expected bounds (e.g., within the working directory or an allowlist), and warn if the path is unusually broad.",
+      "focus": "security"
+    },
+    {
+      "id": "6a8613a874fe",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Action installs noxaudit directly from git main branch",
+      "description": "The action step `pip install git+https://github.com/atriumn/noxaudit.git` installs the latest commit from the main branch at runtime. This means any push to main (including a supply-chain compromise) immediately affects all users of the action without a version pin.",
+      "suggestion": "Pin to a specific release tag or commit SHA: `pip install git+https://github.com/atriumn/noxaudit.git@v0.1.0` or publish to PyPI and use `pip install noxaudit==0.1.0`.",
+      "focus": "security"
+    },
+    {
+      "id": "beab665cd171",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub token passed as GH_TOKEN but action docs reference GITHUB_TOKEN secret",
+      "description": "The action sets `GH_TOKEN: ${{ inputs.github-token }}` in the environment, but the `noxaudit/issues.py` code uses the `gh` CLI which reads `GITHUB_TOKEN` by default, not `GH_TOKEN`. The two names may behave differently depending on the `gh` CLI version. The documentation in `github-issues.md` says to set `GITHUB_TOKEN` but the action uses `GH_TOKEN`.",
+      "suggestion": "Use `GITHUB_TOKEN` as the environment variable name to match `gh` CLI conventions, or verify that `gh` CLI also accepts `GH_TOKEN` on the target runner.",
+      "focus": "security"
+    },
+    {
+      "id": "d591c7af1e69",
+      "severity": "low",
+      "file": "noxaudit/mcp/server.py",
+      "line": null,
+      "title": "MCP get_findings_for_diff runs git subprocess without timeout error handling",
+      "description": "The `get_findings_for_diff` tool wraps `subprocess.run` in a try/except for `TimeoutExpired` and `FileNotFoundError`, but the timeout is only 10 seconds. In a large repo or slow filesystem, this could silently return an error message instead of results.",
+      "suggestion": "The current handling is reasonable; consider increasing the timeout or making it configurable.",
+      "focus": "security"
+    },
+    {
+      "id": "5be1acb3b748",
+      "severity": "low",
+      "file": "noxaudit/__init__.py",
+      "line": 3,
+      "title": "Module docstring references old project name 'Nightwatch'",
+      "description": "The package docstring reads `\"\"\"Nightwatch: Nightly AI-powered codebase audits.\"\"\"` but the project was renamed to Noxaudit.",
+      "suggestion": "Update the docstring to `\"\"\"Noxaudit: Nightly AI-powered codebase audits.\"\"\"`",
+      "focus": "docs"
+    },
+    {
+      "id": "02f0fb8b1a24",
+      "severity": "medium",
+      "file": "noxaudit/reporter.py",
+      "line": null,
+      "title": "Report title still uses 'Nightwatch' brand name",
+      "description": "In `generate_report`, the report title is `f\"# Nightwatch Report: {_focus_display(result.focus)}\"`. The project has been renamed to Noxaudit, so this produces incorrectly branded reports.",
+      "suggestion": "Change the title to `f\"# Noxaudit Report: {_focus_display(result.focus)}\"`",
+      "focus": "docs"
+    },
+    {
+      "id": "15c60bddf25f",
+      "severity": "medium",
+      "file": "README.md",
+      "line": null,
+      "title": "README focus areas table is missing 'testing' focus area",
+      "description": "The README's Focus Areas table lists only 6 areas (security, docs, patterns, performance, hygiene, dependencies) but the code and docs elsewhere list 7 areas including 'testing'. The `FOCUS_AREAS` dict in `noxaudit/focus/__init__.py` confirms 7 areas.",
+      "suggestion": "Add a 'testing' row to the Focus Areas table in README.md.",
+      "focus": "docs"
+    },
+    {
+      "id": "4e48af902b09",
+      "severity": "medium",
+      "file": "README.md",
+      "line": null,
+      "title": "README Supported Models table lists non-existent models",
+      "description": "The README lists models like `gpt-5.2`, `gpt-5-mini`, `gpt-5-nano`, `gemini-3-flash` which appear to be aspirational/invented model names. These are presented as current reality with pricing, which would mislead users trying to configure these models.",
+      "suggestion": "Use only models that are publicly available and verifiable, or clearly mark the table as an example/estimate.",
+      "focus": "docs"
+    },
+    {
+      "id": "61a6898da8ea",
+      "severity": "medium",
+      "file": "CHANGELOG.md",
+      "line": null,
+      "title": "CHANGELOG release date is in the future",
+      "description": "The `[0.1.0]` release is dated `2026-02-15`, which is a future date (relative to any realistic publication date). This creates confusion about when the package was actually released.",
+      "suggestion": "Use the actual release date.",
+      "focus": "docs"
+    },
+    {
+      "id": "63e6adb447fe",
+      "severity": "medium",
+      "file": "docs/guides/configuration.md",
+      "line": null,
+      "title": "Configuration guide documents 'notifications' config with wrong schema",
+      "description": "The configuration guide shows `notifications: - channel: telegram\\n  target: \"YOUR_CHAT_ID\"` but the Telegram notification implementation reads from `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` environment variables. The `target` field from config is passed as `chat_id` to `send_telegram()`, but there is no documented relationship between the config `target` and the env var `TELEGRAM_CHAT_ID` \u2014 one might override the other.",
+      "suggestion": "Clarify in the docs whether `target` in config overrides the `TELEGRAM_CHAT_ID` env var, or if both must be set.",
+      "focus": "docs"
+    },
+    {
+      "id": "2d14541e4fbc",
+      "severity": "low",
+      "file": "docs/reference/configuration.md",
+      "line": null,
+      "title": "Configuration reference shows wrong default for provider_rotation",
+      "description": "The reference table says `repos[].provider_rotation` default is `[gemini]`, which matches the code. However, the Quick Start guide's example config uses `provider_rotation: [anthropic]` and README examples also use anthropic as the default, creating inconsistency in the docs.",
+      "suggestion": "Make the default consistent across all docs, or note that the default differs from the recommended quickstart.",
+      "focus": "docs"
+    },
+    {
+      "id": "7c972634adc9",
+      "severity": "low",
+      "file": "docs/getting-started/first-audit.md",
+      "line": null,
+      "title": "First audit guide references 'testing' as a focus area in decisions guide but omits it from status output example",
+      "description": "The status command example output in `first-audit.md` shows focus areas but doesn't list 'testing', while the code has 7 focus areas. Minor inconsistency in documentation examples.",
+      "suggestion": "Update the example status output to include all 7 focus areas.",
+      "focus": "docs"
+    },
+    {
+      "id": "8f26d4e828df",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Duplicate file gathering and provider initialization logic between _submit_repo and _run_repo_sync",
+      "description": "The functions `_submit_repo` and `_run_repo_sync` have nearly identical code for: file gathering, provider resolution, `_maybe_prepass` call, decisions loading, prompt building, and dry-run handling. This is significant duplication (~50 lines each) that will diverge over time.",
+      "suggestion": "Extract a shared `_prepare_audit` helper that returns (files, provider, prompt, decision_context) to eliminate duplication.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a47e7ab8ef0e",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Duplicate _build_user_message and _format_files across all three providers",
+      "description": "The methods `_build_user_message` and `_format_files` are copy-pasted identically across `AnthropicProvider`, `GeminiProvider`, and `OpenAIProvider`. Any change to the message format must be applied in three places.",
+      "suggestion": "Move `_build_user_message` and `_format_files` to `BaseProvider` in `providers/base.py`.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a7a19946d56e",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Duplicate _make_finding_id implementation across all three providers",
+      "description": "The `_make_finding_id` method is copy-pasted identically in `AnthropicProvider`, `GeminiProvider`, and `OpenAIProvider`. The test `test_matches_anthropic_id_logic` in `test_openai_provider.py` explicitly tests that they match, indicating this is known duplication.",
+      "suggestion": "Move `_make_finding_id` to `BaseProvider`.",
+      "focus": "patterns"
+    },
+    {
+      "id": "b7dd5b045499",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Duplicate JSON parsing logic (_parse_text / _parse_response) across providers",
+      "description": "The JSON-from-markdown-block extraction and findings parsing logic is copy-pasted across all three providers with minor variations. `GeminiProvider` has both `_parse_text` and `_parse_response` which overlap significantly.",
+      "suggestion": "Extract a shared `_parse_findings_json(text, default_focus)` static method in `BaseProvider`.",
+      "focus": "patterns"
+    },
+    {
+      "id": "0e2e2768339c",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "File exclusion logic duplicated between gather_files and gather_files_combined",
+      "description": "`BaseFocus.gather_files` and the module-level `gather_files_combined` both implement the same exclusion logic (hardcoded excludes + user patterns, size check, permission error handling). This duplication means fixes must be applied twice.",
+      "suggestion": "Refactor `gather_files` to call `gather_files_combined([self], ...)` or extract shared file-filtering logic into a helper.",
+      "focus": "patterns"
+    },
+    {
+      "id": "2639b9ec386f",
+      "severity": "low",
+      "file": "noxaudit/cli.py",
+      "line": null,
+      "title": "Inconsistent import style: some imports inside functions, most at module level",
+      "description": "Several functions in `cli.py` use deferred imports inside the function body (e.g., `from noxaudit.focus import FOCUS_AREAS` inside `estimate`, `from noxaudit.mcp.state import load_latest_findings` inside `_load_findings_for_baseline`). Most other imports are at module level. This inconsistency makes it harder to understand the dependency graph.",
+      "suggestion": "Move all imports to module level unless there is a specific reason to defer (e.g., optional dependency).",
+      "focus": "patterns"
+    },
+    {
+      "id": "ac75f73c5aad",
+      "severity": "low",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "PROVIDERS dict populated via conditional import but OpenAI availability not checked consistently",
+      "description": "In `runner.py`, `OpenAIProvider` is conditionally added to `PROVIDERS` at module load time. But `GeminiProvider` is imported unconditionally at the top and would fail if `google-genai` is not installed. The `providers/__init__.py` wraps the import in try/except, but `runner.py` imports directly from `noxaudit.providers.gemini`.",
+      "suggestion": "Follow the same conditional import pattern for GeminiProvider in runner.py, or ensure all optional providers are handled consistently.",
+      "focus": "patterns"
+    },
+    {
+      "id": "50d4632257dd",
+      "severity": "high",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "No tests for run_audit with real provider error handling",
+      "description": "The `run_audit`, `_run_repo_sync`, and `_retrieve_repo` functions have no tests covering error paths: what happens when the provider raises an exception, when files are empty mid-audit, or when `save_report` fails. These are critical paths with no test coverage.",
+      "suggestion": "Add unit tests for error paths in runner functions, including provider exceptions and file I/O failures.",
+      "focus": "testing"
+    },
+    {
+      "id": "7d2adab03c92",
+      "severity": "high",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "GitHub issue creation code has zero test coverage",
+      "description": "The `create_issues_for_findings`, `_issue_exists`, `_create_issue`, `_gh_available`, and `_gh_authenticated` functions in `issues.py` have no tests at all. This is mutation/side-effect code that interacts with external services.",
+      "suggestion": "Add unit tests with mocked `subprocess.run` calls to cover the issue creation flow, deduplication check, and error handling paths.",
+      "focus": "testing"
+    },
+    {
+      "id": "e044cbf80193",
+      "severity": "medium",
+      "file": "noxaudit/prepass.py",
+      "line": null,
+      "title": "prepass.py has no dedicated unit tests",
+      "description": "`run_prepass`, `enrich_files`, `build_classification_prompt`, and `_severity_to_tier` in `prepass.py` have no dedicated unit tests. The CLI integration tests cover the pre-pass flow at a high level but don't test tier mapping, content enrichment, or edge cases.",
+      "suggestion": "Add unit tests for `_severity_to_tier`, `enrich_files`, and `run_prepass` with mocked provider.",
+      "focus": "testing"
+    },
+    {
+      "id": "a1825c3d4c1d",
+      "severity": "medium",
+      "file": "noxaudit/pricing.py",
+      "line": null,
+      "title": "build_estimate_report function has no direct unit tests",
+      "description": "The `build_estimate_report` function in `pricing.py` contains complex formatting and conditional logic (tiered pricing display, prepass section, alternatives) but is only tested indirectly through the CLI. Direct unit tests would catch regressions in the report format.",
+      "suggestion": "Add tests for `build_estimate_report` covering: standard pricing, tiered pricing display, prepass section, alternatives section.",
+      "focus": "testing"
+    },
+    {
+      "id": "d24f6d76fdc7",
+      "severity": "medium",
+      "file": "noxaudit/decisions.py",
+      "line": null,
+      "title": "filter_findings file change detection path not fully tested",
+      "description": "The `filter_findings` function's file-change detection branch (where `file_hash` differs) is tested in `test_baseline.py` but only through the baseline integration path. The direct `filter_findings` unit tests in `test_decisions.py` don't test the file hash mismatch case.",
+      "suggestion": "Add a test in `test_decisions.py` that directly tests `filter_findings` when the file has changed since the decision was recorded.",
+      "focus": "testing"
+    },
+    {
+      "id": "47b4259f0a95",
+      "severity": "low",
+      "file": "tests/test_cli.py",
+      "line": null,
+      "title": "TestRunDryRun.test_off_focus does not assert meaningful behavior",
+      "description": "The test `test_off_focus` invokes the run command with `--focus off` and only asserts `exit_code == 0`. It does not verify that no files were audited or that the output is correct (e.g., 'Nothing to audit' message).",
+      "suggestion": "Assert on the output content to verify that `off` focus results in no audit being attempted.",
+      "focus": "testing"
+    },
+    {
+      "id": "103b21f707a8",
+      "severity": "medium",
+      "file": "noxaudit/cost_ledger.py",
+      "line": null,
+      "title": "CostLedger.LEDGER_PATH is a class-level mutable Path constant",
+      "description": "Using a class-level `LEDGER_PATH = Path(\".noxaudit/cost-ledger.jsonl\")` requires all tests to use `mock.patch.object(CostLedger, 'LEDGER_PATH', ...)`. The ledger path is not configurable via the config system, so it always writes to the current working directory.",
+      "suggestion": "Accept an optional path parameter in `append_entry` and `read_entries`, or initialize the path from the config object passed to the runner.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "0383372950b3",
+      "severity": "medium",
+      "file": "noxaudit/mcp/state.py",
+      "line": null,
+      "title": "LATEST_FINDINGS_FILE constant duplicates the path hardcoded in runner.py and mcp/server.py",
+      "description": "`LATEST_FINDINGS_FILE = \".noxaudit/latest-findings.json\"` is defined in `mcp/state.py`, but `mcp/server.py` also passes `\".noxaudit/decisions.jsonl\"` as a hardcoded string in `record_decision`. These scattered hardcoded paths are fragile.",
+      "suggestion": "Centralize all `.noxaudit/` path constants in a single module (e.g., `noxaudit/paths.py`) and import from there.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "cb28ee6e2bf3",
+      "severity": "low",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "PENDING_BATCH_FILE and LAST_RETRIEVED_FILE are module-level constants not exposed via config",
+      "description": "The paths `.noxaudit/pending-batch.json` and `.noxaudit/last-retrieved.json` are hardcoded module constants. They cannot be configured by users who may want to run multiple concurrent audits or use a different working directory.",
+      "suggestion": "Consider adding these to the config or at minimum documenting them as fixed paths.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "b79405c4ec5a",
+      "severity": "low",
+      "file": "docs/roadmap/08-saas-scheduling.md",
+      "line": null,
+      "title": "Roadmap doc references internal file '03.5-saas-application.md' that is not in the provided codebase",
+      "description": "The roadmap document references `[SaaS Application](03.5-saas-application.md)` and `[Strategy & Pricing](../STRATEGY.md)` which are not present in the repository. These are broken internal links.",
+      "suggestion": "Remove broken links or replace with stub pages/anchors.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "6afd4b84e03c",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Duplicate dev dependencies defined in both [project.optional-dependencies.dev] and [dependency-groups.dev]",
+      "description": "The `pyproject.toml` defines dev dependencies in two places: `[project.optional-dependencies]` (pytest>=8.0, ruff>=0.8) and `[dependency-groups.dev]` (pytest>=9.0.2, ruff>=0.15.1) with different version requirements. This can cause confusion about which is authoritative.",
+      "suggestion": "Remove one of the duplicate definitions. `[dependency-groups]` is the newer PEP 735 standard; consider using only that.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "a790fbf6973e",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "anthropic package listed as a required dependency but should be optional",
+      "description": "`anthropic>=0.40` is listed in the main `dependencies` array, making it a mandatory install even for users who only want to use Gemini or OpenAI. The README says 'Anthropic is built-in' but this forces all users to install the Anthropic SDK.",
+      "suggestion": "Move `anthropic` to `[project.optional-dependencies]` with a fallback or keep it required but document clearly that it is bundled intentionally.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "c110058504b7",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Missing 'google-api-key' input in action.yml vs openai-api-key documented",
+      "description": "The `action/action.yml` defines `anthropic-api-key` and `telegram-*` inputs and sets them as env vars, but does not define `openai-api-key` or `google-api-key` inputs even though the docs (`github-actions.md`) shows all three in the secrets setup table and the action reference table lists them.",
+      "suggestion": "Add `openai-api-key` and `google-api-key` inputs to `action.yml` and pass them as `OPENAI_API_KEY` and `GOOGLE_API_KEY` environment variables.",
+      "focus": "docs"
+    },
+    {
+      "id": "b4bca58fe1ff",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "estimate_tokens uses rough 4-chars-per-token heuristic that may significantly undercount for non-ASCII content",
+      "description": "The `estimate_tokens` function divides character count by 4. For code with many non-ASCII characters, unicode strings, or multi-byte sequences, actual token counts can be 2-3x higher. This can cause pre-pass auto-enable to miss the tier threshold check.",
+      "suggestion": "Consider using `tiktoken` or the provider's tokenizer for more accurate estimates, or document the known inaccuracy and add a safety margin (e.g., divide by 3 instead of 4).",
+      "focus": "performance"
+    },
+    {
+      "id": "3b6158504c58",
+      "severity": "medium",
+      "file": "noxaudit/decisions.py",
+      "line": null,
+      "title": "load_decisions reads entire file into memory on every call",
+      "description": "`load_decisions` reads and parses the entire decisions JSONL file every time it is called. In `runner.py`, `load_decisions` is called at least twice per repo audit (once in `_submit_repo`/`_run_repo_sync` and once in `filter_findings`). For large teams with many decisions (thousands of entries), this is an O(n) read on every call.",
+      "suggestion": "Cache the loaded decisions within a single audit run, or pass the loaded decisions through the call chain to avoid re-reading.",
+      "focus": "performance"
+    },
+    {
+      "id": "20a6586654e3",
+      "severity": "low",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "get_prompt_from_file reads from disk on every call with no caching",
+      "description": "Each focus area's `get_prompt` method calls `get_prompt_from_file` which opens and reads a file from disk every time a prompt is needed. During combined audits, prompts are built via `build_combined_prompt` which calls `get_prompt()` on each focus instance. For repeated calls, this is unnecessary I/O.",
+      "suggestion": "Cache the prompt content at the class level or instance level after first load.",
+      "focus": "performance"
+    }
+  ]
+}

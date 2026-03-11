@@ -1,0 +1,564 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "anthropic",
+    "model": "claude-opus-4-6",
+    "focus": "all",
+    "run": 3,
+    "started_at": "2026-03-11T13:57:47.321113",
+    "completed_at": "2026-03-11T14:02:49.253512",
+    "wall_clock_seconds": 301.93,
+    "error": null
+  },
+  "tokens": {
+    "input": 131134,
+    "output": 9256,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.4435,
+  "findings_count": 54,
+  "findings": [
+    {
+      "id": "fdc713d02c70",
+      "severity": "medium",
+      "file": "noxaudit/__init__.py",
+      "line": 1,
+      "title": "Docstring references old project name 'Nightwatch'",
+      "description": "The module docstring says `\"\"\"Nightwatch: Nightly AI-powered codebase audits.\"\"\"` but the project was renamed to Noxaudit. This is misleading for developers reading the package metadata.",
+      "suggestion": "Change to `\"\"\"Noxaudit: Nightly AI-powered codebase audits.\"\"\"`",
+      "focus": "docs"
+    },
+    {
+      "id": "ffc000b5ee90",
+      "severity": "medium",
+      "file": "noxaudit/reporter.py",
+      "line": 16,
+      "title": "Report title references old project name 'Nightwatch'",
+      "description": "The `generate_report` function produces reports with the title `# Nightwatch Report: ...` but the project was renamed to Noxaudit. Users will see the wrong project name in their reports.",
+      "suggestion": "Change `f\"# Nightwatch Report: {_focus_display(result.focus)}\"` to `f\"# Noxaudit Report: {_focus_display(result.focus)}\"`",
+      "focus": "docs"
+    },
+    {
+      "id": "1f837cac4683",
+      "severity": "medium",
+      "file": "noxaudit/mcp/server.py",
+      "line": 178,
+      "title": "MCP record_decision hardcodes decisions path instead of using config",
+      "description": "The `record_decision` MCP tool hardcodes the path `.noxaudit/decisions.jsonl` rather than reading from the user's config (`config.decisions.path`). If a user configures a custom decisions path, MCP decisions will go to the wrong file.",
+      "suggestion": "Load the config via `load_config()` and use `config.decisions.path` instead of the hardcoded string.",
+      "focus": "patterns"
+    },
+    {
+      "id": "d88160964b06",
+      "severity": "medium",
+      "file": "noxaudit/mcp/server.py",
+      "line": 198,
+      "title": "MCP run_audit tool catches all exceptions and returns them as strings",
+      "description": "Both the config loading and audit running are wrapped in bare `except Exception` blocks that convert errors to user-facing strings. This swallows stack traces and makes debugging difficult. It also leaks internal error details to MCP clients.",
+      "suggestion": "Log the full exception with traceback internally and return a sanitized error message to the MCP client.",
+      "focus": "security"
+    },
+    {
+      "id": "32278188da0a",
+      "severity": "high",
+      "file": "noxaudit/runner.py",
+      "line": 46,
+      "title": "Provider model not resolved per-provider in runner",
+      "description": "In `_submit_repo` (line 198) and `_run_repo_sync` (line 297), providers are instantiated with `PROVIDERS[pname](model=config.model)` \u2014 this always uses the global model, ignoring per-provider model overrides configured via `providers.<name>.model`. The config has `get_model_for_provider()` but it's never called in the runner.",
+      "suggestion": "Replace `PROVIDERS[pname](model=config.model)` with `PROVIDERS[pname](model=config.get_model_for_provider(pname))` in both `_submit_repo` and `_run_repo_sync`.",
+      "focus": "patterns"
+    },
+    {
+      "id": "25b885ad39bb",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": 53,
+      "title": "PrepassConfig field 'auto_disable' has inverted semantics vs config key 'auto'",
+      "description": "The YAML config key is `prepass.auto: true` (meaning auto-enable), but it maps to `auto_disable=not prepass_raw.get('auto', True)`. This double-negation is confusing. The field name `auto_disable` is the inverse of the config key `auto`, making the code error-prone.",
+      "suggestion": "Rename the field to `auto_enable` with direct mapping, or document the inversion clearly.",
+      "focus": "patterns"
+    },
+    {
+      "id": "9c5d2d4bee77",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 1,
+      "title": "Massive code duplication between _submit_repo and _run_repo_sync",
+      "description": "The functions `_submit_repo` (lines 157-218) and `_run_repo_sync` (lines 269-349) share nearly identical code for file gathering, provider resolution, prepass execution, decision loading, and prompt building. This violates DRY and means changes must be made in two places.",
+      "suggestion": "Extract the shared setup logic (file gathering, prepass, decision context, prompt building) into a shared helper function.",
+      "focus": "patterns"
+    },
+    {
+      "id": "7b89615a82bc",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": 117,
+      "title": "Duplicated _parse_response and _parse_text methods in GeminiProvider",
+      "description": "GeminiProvider has both `_parse_text` (line 117) and `_parse_response` (line 147), which contain nearly identical JSON parsing logic. `_parse_response` just calls `response.text` and then does the same extraction. This duplication exists across all three providers.",
+      "suggestion": "Have `_parse_response` call `_parse_text(response.text, default_focus)` instead of duplicating the logic.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a1622f9672f4",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": 1,
+      "title": "Duplicated _build_user_message, _format_files, _make_finding_id, and JSON parsing across all three providers",
+      "description": "The Anthropic, Gemini, and OpenAI providers all contain identical implementations of `_build_user_message`, `_format_files`, `_make_finding_id`, and JSON response parsing logic. This is significant code duplication across `anthropic.py`, `gemini.py`, and `openai.py`.",
+      "suggestion": "Move shared methods to `BaseProvider` or a mixin/utility module. Each provider should only override provider-specific API interactions.",
+      "focus": "patterns"
+    },
+    {
+      "id": "22bef0a62381",
+      "severity": "medium",
+      "file": "README.md",
+      "line": null,
+      "title": "README lists 6 focus areas in table but describes 7 in text",
+      "description": "The 'Focus Areas' table in README.md lists only 6 areas (security, docs, patterns, performance, hygiene, dependencies) but the text above says 'Default is all 7 focus areas' and `noxaudit run --focus all` runs 7. The 'testing' focus area is missing from the README table.",
+      "suggestion": "Add `testing` to the Focus Areas table in README.md.",
+      "focus": "docs"
+    },
+    {
+      "id": "3845a58ae7e1",
+      "severity": "medium",
+      "file": "README.md",
+      "line": null,
+      "title": "README Supported Models table has inconsistent pricing vs providers reference",
+      "description": "The README lists `gpt-5-mini` output at `$1.00/M` and `gpt-5-nano` output at `$0.15/M`, but `docs/reference/providers.md` and `noxaudit/pricing.py` show `gpt-5-mini` output at `$2.00/M` and `gpt-5-nano` output at `$0.40/M`. The README pricing is wrong.",
+      "suggestion": "Update the README Supported Models table to match the pricing in `noxaudit/pricing.py`.",
+      "focus": "docs"
+    },
+    {
+      "id": "949289b88b57",
+      "severity": "medium",
+      "file": "docs/reference/configuration.md",
+      "line": null,
+      "title": "Configuration reference shows default provider_rotation as [gemini] but README shows [anthropic]",
+      "description": "In `docs/reference/configuration.md`, `repos[].provider_rotation` defaults to `[gemini]`. The README Key Options table says `[anthropic]`. The actual code in `config.py` line 15 defaults to `[\"gemini\"]`. The README is wrong.",
+      "suggestion": "Update the README Key Options table to show `[gemini]` as the default for `provider_rotation`.",
+      "focus": "docs"
+    },
+    {
+      "id": "b10604b0e7b0",
+      "severity": "low",
+      "file": "CONTRIBUTING.md",
+      "line": null,
+      "title": "CONTRIBUTING.md config example uses 'anthropic_api_key' in YAML \u2014 not how config works",
+      "description": "The 'Configuration for Testing' section shows `anthropic_api_key: your-test-key` in the YAML config. But the actual config (`config.py`) does not read API keys from the YAML file \u2014 they come from environment variables (`ANTHROPIC_API_KEY`). This would mislead contributors.",
+      "suggestion": "Remove `anthropic_api_key` from the example YAML and add a note about setting `export ANTHROPIC_API_KEY=...` instead.",
+      "focus": "docs"
+    },
+    {
+      "id": "a0dff6b32607",
+      "severity": "medium",
+      "file": "CONTRIBUTING.md",
+      "line": null,
+      "title": "CONTRIBUTING.md describes FocusArea base class instead of BaseFocus",
+      "description": "The 'Adding a New Focus Area' section says to inherit from `FocusArea` with `from noxaudit.focus.base import FocusArea` and register in a dict called `FOCUS_AREAS`. The actual base class is `BaseFocus` (in `noxaudit/focus/base.py`). The dict in `noxaudit/focus/__init__.py` maps to `type[BaseFocus]`.",
+      "suggestion": "Update the code examples to use `from noxaudit.focus.base import BaseFocus` and `class YourAreaFocus(BaseFocus):`.",
+      "focus": "docs"
+    },
+    {
+      "id": "38cec4a35acf",
+      "severity": "medium",
+      "file": "docs/contributing/index.md",
+      "line": null,
+      "title": "docs/contributing/index.md also references wrong base class name 'FocusArea'",
+      "description": "Same issue as CONTRIBUTING.md \u2014 the contributing docs reference `FocusArea` as the base class, but the actual base class is `BaseFocus`.",
+      "suggestion": "Update to `BaseFocus` to match the actual code.",
+      "focus": "docs"
+    },
+    {
+      "id": "8ab16442c2f1",
+      "severity": "low",
+      "file": "CONTRIBUTING.md",
+      "line": null,
+      "title": "Project structure in CONTRIBUTING.md is incomplete",
+      "description": "The project structure section is missing several modules that exist in the codebase: `mcp/`, `decisions.py`, `pricing.py`, `sarif.py`, `prepass.py`, `cost_ledger.py`, `issues.py`, `models.py`. The `docs/contributing/index.md` version is more complete but also has gaps.",
+      "suggestion": "Update the project structure to include all current modules.",
+      "focus": "docs"
+    },
+    {
+      "id": "2caa5e91835f",
+      "severity": "high",
+      "file": "noxaudit/issues.py",
+      "line": 84,
+      "title": "Command injection via finding title/description in gh CLI arguments",
+      "description": "The `_create_issue` function passes `finding.title` and `finding.description` (which come from AI-generated output) directly as shell command arguments via `subprocess.run(['gh', 'issue', 'create', '--title', title, '--body', body, ...])`. While `subprocess.run` with a list avoids shell=True injection, the AI-generated content could contain special characters that `gh` interprets. More critically, `gh issue list --search` in `_issue_exists` passes the marker string which includes the finding ID.",
+      "suggestion": "This is lower risk since subprocess.run with list args doesn't invoke a shell, but validate/sanitize the finding title and description before passing to subprocess. Consider using the GitHub API directly via httpx instead of shelling out to `gh`.",
+      "focus": "security"
+    },
+    {
+      "id": "2b5035205b66",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": 21,
+      "title": "Telegram bot token included in URL could be logged",
+      "description": "The Telegram API URL is constructed as `f\"https://api.telegram.org/bot{token}/sendMessage\"` and passed to httpx. If httpx logging is enabled or if there's an error, the bot token could be logged in the URL. The httpx library may log request URLs at debug level.",
+      "suggestion": "This is standard Telegram Bot API usage but consider suppressing httpx debug logging for this call, or document that users should not enable verbose HTTP logging.",
+      "focus": "security"
+    },
+    {
+      "id": "d7b894a3845d",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub Action installs from git without pinned version",
+      "description": "The action installs noxaudit via `pip install git+https://github.com/atriumn/noxaudit.git` without a pinned commit hash or version tag. This means the action always installs from the latest main branch, which could break or introduce unexpected changes.",
+      "suggestion": "Pin to a specific version tag: `pip install git+https://github.com/atriumn/noxaudit.git@v0.1.0` or publish to PyPI and install from there.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "fd7db2526a6b",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub Action missing openai-api-key and google-api-key inputs in run step",
+      "description": "The action defines `openai-api-key` and `google-api-key` as inputs (per the docs), but the 'Run noxaudit' step only sets `ANTHROPIC_API_KEY` in the env block. `OPENAI_API_KEY` and `GOOGLE_API_KEY` are never set, so multi-provider rotation would fail in the action.",
+      "suggestion": "Add `OPENAI_API_KEY: ${{ inputs.openai-api-key }}` and `GOOGLE_API_KEY: ${{ inputs.google-api-key }}` to the env block of the 'Run noxaudit' step.",
+      "focus": "security"
+    },
+    {
+      "id": "c5b056e91201",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub Action docs list inputs (openai-api-key, google-api-key) not defined in action.yml",
+      "description": "The docs at `docs/integrations/github-actions.md` list `openai-api-key`, `google-api-key`, and `output-format` as action inputs, but `action/action.yml` only defines `anthropic-api-key` and `format` (not `output-format`). The `openai-api-key` and `google-api-key` inputs are completely missing from the action definition.",
+      "suggestion": "Add the missing input definitions to `action/action.yml` or update the docs to match the actual inputs.",
+      "focus": "docs"
+    },
+    {
+      "id": "8840254de02f",
+      "severity": "low",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Submit mode doesn't pass --format flag",
+      "description": "The submit step in the action only passes `--focus` but not `--format`. The retrieve step passes `--format ${{ inputs.format }}`, but submit does not. This is inconsistent but may be intentional since submit doesn't produce output.",
+      "suggestion": "Verify this is intentional. If submit should also respect format for dry-run output, add the flag.",
+      "focus": "patterns"
+    },
+    {
+      "id": "dede3b731ce3",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Retrieve step missing --config flag for noxaudit retrieve",
+      "description": "The submit step uses `--config ${{ inputs.config }}` but the retrieve step hardcodes `--config ${{ inputs.config }}` only on the `noxaudit retrieve` call \u2014 wait, looking again, it does have `--config ${{ inputs.config }}`. Actually the submit path builds ARGS manually but retrieve uses inline args. The retrieve path is `noxaudit retrieve --config ${{ inputs.config }} --format ${{ inputs.format }}` which is correct. No issue here.",
+      "suggestion": null,
+      "focus": "docs"
+    },
+    {
+      "id": "831cf4eac937",
+      "severity": "medium",
+      "file": "noxaudit/cost_ledger.py",
+      "line": 14,
+      "title": "CostLedger uses hardcoded LEDGER_PATH relative to CWD",
+      "description": "The `CostLedger.LEDGER_PATH` is hardcoded as `Path('.noxaudit/cost-ledger.jsonl')` relative to the current working directory, not relative to the config or repo path. This means cost tracking breaks if the CLI is invoked from a different directory.",
+      "suggestion": "Make the ledger path configurable or derive it from the config's reports directory.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a852956a9dd0",
+      "severity": "low",
+      "file": "noxaudit/focus/base.py",
+      "line": 28,
+      "title": "MAX_FILE_SIZE is approximately 50KB but uses character count, not bytes",
+      "description": "The comment says '~50KB' but `path.stat().st_size` returns bytes while the constant is 50,000. For UTF-8 files with multi-byte characters, this is slightly inaccurate. Not a real problem in practice but the comment could be clearer.",
+      "suggestion": "Change comment to 'Max file size in bytes' for clarity.",
+      "focus": "docs"
+    },
+    {
+      "id": "ed3f9254ff0c",
+      "severity": "low",
+      "file": "noxaudit/focus/base.py",
+      "line": 46,
+      "title": "Exclude pattern matching uses substring 'in' which could have false positives",
+      "description": "The check `any(ex in rel for ex in exclude)` does substring matching. A pattern like 'dist' would also exclude 'distribution/file.py' or 'redistribute.py'. Same issue in `gather_files_combined`.",
+      "suggestion": "Use path component matching instead: `any(ex in rel.split(os.sep) for ex in exclude)` or use `pathlib.PurePath.parts`.",
+      "focus": "security"
+    },
+    {
+      "id": "efb9928bdb5d",
+      "severity": "high",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "No test coverage for the main audit flow with a real (mocked) provider returning findings that get filtered, reported, and notified",
+      "description": "The runner module's `_run_repo_sync` function orchestrates file gathering, prepass, provider invocation, decision filtering, report generation, SARIF output, notifications, and issue creation. While individual components have tests, there is no integration test that verifies the full flow from `run` CLI command through to report generation, notification sending, and issue creation with a mocked provider returning findings. The `test_cli_integration.py` tests only cover prepass, cost tracking, and baseline features.",
+      "suggestion": "Add a CLI integration test that invokes `noxaudit run --focus security`, mocks the provider to return findings, and asserts that: reports are saved, findings are serialized to latest-findings.json, and the output shows the correct count.",
+      "focus": "testing"
+    },
+    {
+      "id": "45c97e1e7cdb",
+      "severity": "medium",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "No test coverage for issues.py (GitHub issue creation)",
+      "description": "The `noxaudit/issues.py` module has no corresponding test file. It contains logic for severity threshold filtering, deduplication via `_issue_exists`, rate limiting, and the actual `_create_issue` function \u2014 all untested.",
+      "suggestion": "Create `tests/test_issues.py` with unit tests for `create_issues_for_findings`, mocking `subprocess.run` to avoid real `gh` calls. Test severity filtering, deduplication, and error handling.",
+      "focus": "testing"
+    },
+    {
+      "id": "065211bdc9f3",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "No test coverage for Telegram notification sending",
+      "description": "The `send_telegram` function in `noxaudit/notifications/telegram.py` has no tests. It handles API key validation, HTTP posting, and error handling \u2014 none of which are tested.",
+      "suggestion": "Add tests in `tests/test_notifications.py` that mock `httpx.post` and verify the function handles missing tokens, API errors, and successful sends.",
+      "focus": "testing"
+    },
+    {
+      "id": "96f842121cfd",
+      "severity": "medium",
+      "file": "noxaudit/prepass.py",
+      "line": null,
+      "title": "No test coverage for prepass.py run_prepass and enrich_files functions",
+      "description": "While `_maybe_prepass` in the runner is tested, the actual `run_prepass` function and `enrich_files` function in `prepass.py` have no direct unit tests. These functions handle file classification, tier mapping, and content enrichment.",
+      "suggestion": "Add `tests/test_prepass.py` with unit tests for `enrich_files`, `build_classification_prompt`, `_severity_to_tier`, and `run_prepass` with a mocked provider.",
+      "focus": "testing"
+    },
+    {
+      "id": "f0cf5e8fe2ea",
+      "severity": "medium",
+      "file": "noxaudit/cli.py",
+      "line": 190,
+      "title": "estimate command calls _resolve_focus_names which is a private runner function",
+      "description": "The `estimate` CLI command imports and calls `_resolve_focus_names` from `noxaudit.runner`. This is a private function (prefixed with `_`) being used across module boundaries, suggesting it should be a public function or moved to a shared location.",
+      "suggestion": "Either make it a public function (`resolve_focus_names`) or move it to `config.py` where it naturally belongs alongside `normalize_focus`.",
+      "focus": "patterns"
+    },
+    {
+      "id": "330f23cb9bc2",
+      "severity": "low",
+      "file": "noxaudit/cli.py",
+      "line": 100,
+      "title": "Repeated datetime import inside functions",
+      "description": "The `_display_cost_summary` function imports `datetime` inside the function body at line 100 (`from datetime import datetime as _dt`) and again at line 115 (`from datetime import datetime`). The module already uses `from datetime import date` at the top level.",
+      "suggestion": "Move all datetime imports to the top of the file.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "d59f8239a860",
+      "severity": "low",
+      "file": "noxaudit/cli.py",
+      "line": 188,
+      "title": "Lazy imports inside estimate command",
+      "description": "The `estimate` command uses lazy imports for `FOCUS_AREAS`, `gather_files_combined`, `build_estimate_report`, and `resolve_model_key`. These modules are already imported at the top level for other commands (e.g., `FOCUS_AREAS` is imported at line 16). The lazy import pattern is inconsistent.",
+      "suggestion": "Move the imports to the top of the file for consistency, or document why lazy imports are needed here (e.g., startup performance).",
+      "focus": "patterns"
+    },
+    {
+      "id": "dd72c48c7865",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Duplicate 'dev' dependency group \u2014 both [project.optional-dependencies] and [dependency-groups]",
+      "description": "Dev dependencies are declared in both `[project.optional-dependencies].dev` (pytest>=8.0, ruff>=0.8) and `[dependency-groups].dev` (pytest>=9.0.2, ruff>=0.15.1) with different version constraints. This is confusing and could lead to different versions being installed depending on the installation method.",
+      "suggestion": "Remove the `[dependency-groups].dev` section or consolidate into one location. Align version constraints.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "5a3c2e4b589f",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": 23,
+      "title": "Keywords list includes old project name 'nightwatch'",
+      "description": "The `keywords` field in pyproject.toml includes 'nightwatch' which is the old project name. This would appear in PyPI metadata.",
+      "suggestion": "Replace 'nightwatch' with 'noxaudit' in the keywords list.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "da5e930b4bfc",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "anthropic is a required dependency, not optional",
+      "description": "The `anthropic` package is listed as a required dependency in `[project].dependencies`, but the README and docs say 'Anthropic is included in the base install \u2014 no extra needed'. This is correct, but it means all users must install the Anthropic SDK even if they only use Gemini or OpenAI. This is a design choice but adds weight for users who don't need it.",
+      "suggestion": "Consider making `anthropic` an optional dependency like openai and google, or document clearly that it's always installed.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "d19b5dfc8d6f",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 28,
+      "title": "OpenAI provider import failure silently swallowed",
+      "description": "If the openai package is installed but has an import error (e.g., version incompatibility), the `try/except ImportError: pass` on line 28 silently swallows it. The user would see 'Unknown provider: openai' with no indication of the actual error.",
+      "suggestion": "Log a warning when the import fails so users know why the provider isn't available.",
+      "focus": "patterns"
+    },
+    {
+      "id": "00fdcebf1a89",
+      "severity": "medium",
+      "file": "noxaudit/providers/__init__.py",
+      "line": 8,
+      "title": "Same silent import swallowing in providers/__init__.py",
+      "description": "Both GeminiProvider and OpenAIProvider imports are wrapped in bare `try/except ImportError` that silently set the provider to None. This makes debugging import issues difficult.",
+      "suggestion": "Add `import warnings; warnings.warn(f'Could not import {name}: {e}')` in the except block.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a5dae7988ade",
+      "severity": "low",
+      "file": "CHANGELOG.md",
+      "line": 20,
+      "title": "Release date 2026-02-15 is in the future",
+      "description": "The [0.1.0] release is dated 2026-02-15 which appears to be a placeholder or future date. If this has actually been released, the date should reflect reality.",
+      "suggestion": "Update to the actual release date.",
+      "focus": "docs"
+    },
+    {
+      "id": "35d7b7ac9036",
+      "severity": "low",
+      "file": "docs/changelog.md",
+      "line": 20,
+      "title": "Duplicate changelog \u2014 docs/changelog.md is identical to CHANGELOG.md",
+      "description": "Both `CHANGELOG.md` and `docs/changelog.md` contain identical content. This duplication means changes must be made in two places.",
+      "suggestion": "Use mkdocs-snippets or a symlink to keep a single source of truth. Or use mkdocs `!include` to reference the root CHANGELOG.md.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "e49987f4b8b3",
+      "severity": "low",
+      "file": "noxaudit/reporter.py",
+      "line": 67,
+      "title": "format_notification missing icon for 'testing' focus area",
+      "description": "The `focus_icons` dict in `format_notification` maps 6 focus areas to icons but is missing 'testing'. A testing-only audit would get the generic \ud83d\udd0d icon.",
+      "suggestion": "Add `'testing': '\ud83e\uddea'` to the `focus_icons` dict.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "83b4ea3c7060",
+      "severity": "low",
+      "file": "noxaudit/sarif.py",
+      "line": 132,
+      "title": "_get_noxaudit_version fallback returns hardcoded '0.2.0' instead of '0.1.0'",
+      "description": "The fallback version in `_get_noxaudit_version` returns `'0.2.0'` but `noxaudit/__init__.py` defines `__version__ = '0.1.0'`. The fallback would only trigger if the import fails, but it's still wrong.",
+      "suggestion": "Change the fallback to `'0.1.0'` to match the current version, or better yet, remove the fallback and let the error propagate.",
+      "focus": "docs"
+    },
+    {
+      "id": "a0d388b88758",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "No timeout on provider polling loops",
+      "description": "Both `AnthropicProvider.run_audit` and `OpenAIProvider.run_audit` poll indefinitely with `while True` loops and `time.sleep(60)`. If a batch gets stuck, the CLI will hang forever with no way to break out other than killing the process.",
+      "suggestion": "Add a maximum poll time (e.g., 2 hours) or maximum number of retries, then raise a timeout error.",
+      "focus": "performance"
+    },
+    {
+      "id": "b60beffc03e6",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": 36,
+      "title": "File gathering uses recursive glob which may be slow on large repos",
+      "description": "All focus areas use `**/*.py` and similar recursive glob patterns. For large monorepos, `repo.glob('**/*.py')` can be very slow as it traverses every directory including those that will be excluded. The exclude check happens after the file is found.",
+      "suggestion": "Consider using a walk-based approach that prunes excluded directories early, or use `pathlib.Path.rglob` with early directory filtering via `os.walk`.",
+      "focus": "performance"
+    },
+    {
+      "id": "5f1e3655b0d8",
+      "severity": "low",
+      "file": "noxaudit/decisions.py",
+      "line": 116,
+      "title": "remove_baseline_decisions rewrites entire decisions file on every call",
+      "description": "The function loads all decisions, filters them, and rewrites the entire file. For large decision files this is inefficient but acceptable for the expected scale.",
+      "suggestion": null,
+      "focus": "performance"
+    },
+    {
+      "id": "5b1f128723e8",
+      "severity": "low",
+      "file": "docs/guides/cost-management.md",
+      "line": null,
+      "title": "Cost comparison table lists models not in README's Supported Models table",
+      "description": "The cost comparison table in `cost-management.md` lists `gemini-2.5-flash`, `gemini-2.5-pro`, and `claude-opus-4-6` which are not in the README's 'Supported Models' table. The tables across docs should be consistent.",
+      "suggestion": "Keep one authoritative pricing table (e.g., in `docs/reference/providers.md`) and reference it from other pages.",
+      "focus": "docs"
+    },
+    {
+      "id": "98d062326007",
+      "severity": "low",
+      "file": "docs/roadmap/08-saas-scheduling.md",
+      "line": null,
+      "title": "Roadmap doc references files that don't exist in this codebase",
+      "description": "References to `03.5-saas-application.md`, `06-product-quality-focus-areas.md`, and `../STRATEGY.md` point to files not included in the provided codebase. These may exist elsewhere but are broken cross-references in the context of this repo.",
+      "suggestion": "Verify these files exist or mark them as external/future references.",
+      "focus": "docs"
+    },
+    {
+      "id": "a583f0a74d10",
+      "severity": "low",
+      "file": "docs/guides/scheduling.md",
+      "line": null,
+      "title": "Scheduling guide mentions --provider flag which isn't defined on run command",
+      "description": "The scheduling guide shows `noxaudit run --provider gemini` and `noxaudit run --focus all --provider anthropic`. The CLI `run` command does have a `--provider` flag (line 141 of cli.py), so this is actually correct. No issue.",
+      "suggestion": null,
+      "focus": "docs"
+    },
+    {
+      "id": "74e19cf4cd1b",
+      "severity": "medium",
+      "file": "noxaudit/cli.py",
+      "line": 233,
+      "title": "baseline command depends on MCP state module for loading findings",
+      "description": "The `_load_findings_for_baseline` function imports and uses `load_latest_findings` from `noxaudit.mcp.state`. This creates a dependency from the core CLI to the MCP module. If the MCP module changes its state format, baseline breaks. Also, `mcp` is an optional extra.",
+      "suggestion": "Move `load_latest_findings` to a shared state module (e.g., `noxaudit/state.py`) that both CLI and MCP depend on, or ensure the import is resilient to missing MCP dependency.",
+      "focus": "patterns"
+    },
+    {
+      "id": "948fc0394c23",
+      "severity": "low",
+      "file": "noxaudit/mcp/state.py",
+      "line": 1,
+      "title": "MCP state module is used by non-MCP code (runner.py, cli.py)",
+      "description": "The `noxaudit/mcp/state.py` module (save/load findings) is imported by `runner.py` and `cli.py` for baseline operations. This means the MCP package structure is used as general state management, which is misleading \u2014 it suggests MCP-specific code but it's actually core functionality.",
+      "suggestion": "Consider moving state management functions to `noxaudit/state.py` and having MCP import from there.",
+      "focus": "patterns"
+    },
+    {
+      "id": "408f06eef12d",
+      "severity": "low",
+      "file": "noxaudit/focus/base.py",
+      "line": 75,
+      "title": "extract_file_map regex compiles on every call",
+      "description": "The `_DEF_RE` and `_COMMENT_RE` regexes inside `extract_file_map` are compiled every time the function is called. For pre-pass processing many files, this is unnecessarily repeated.",
+      "suggestion": "Move the regex compilation to module level constants.",
+      "focus": "performance"
+    },
+    {
+      "id": "58eacbec47c8",
+      "severity": "low",
+      "file": "tests/test_cli_integration.py",
+      "line": null,
+      "title": "CLI integration tests don't verify report file creation",
+      "description": "The CLI integration tests mock `save_latest_findings` but don't verify that markdown reports are actually saved to the reports directory. The report saving happens in the runner but is never asserted in integration tests.",
+      "suggestion": "Add assertions in CLI integration tests that verify report files exist in the expected directory after a run.",
+      "focus": "testing"
+    },
+    {
+      "id": "d6ae2bad2aa1",
+      "severity": "low",
+      "file": "noxaudit/cli.py",
+      "line": 169,
+      "title": "retrieve command doesn't pass config path to pending file location",
+      "description": "The `retrieve` command loads the pending batch from a hardcoded path in the runner (`PENDING_BATCH_FILE = '.noxaudit/pending-batch.json'`). If the user runs `noxaudit retrieve` from a different directory than where `submit` was run, it won't find the pending file.",
+      "suggestion": "Consider making the pending batch path relative to the config file location or the configured reports directory.",
+      "focus": "patterns"
+    },
+    {
+      "id": "72e7dab7439d",
+      "severity": "low",
+      "file": "docs/getting-started/first-audit.md",
+      "line": null,
+      "title": "first-audit.md shows 'claude-sonnet-4-5' without version suffix in estimate output",
+      "description": "The example output shows `Provider: anthropic (claude-sonnet-4-5)` but the actual model ID used throughout the codebase is `claude-sonnet-4-5-20250929`. This is minor but could confuse users comparing their output to docs.",
+      "suggestion": "Update the example output to use the full model ID, or note that the display may be shortened.",
+      "focus": "docs"
+    }
+  ]
+}

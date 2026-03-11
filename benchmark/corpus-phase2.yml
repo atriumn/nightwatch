@@ -1,0 +1,37 @@
+# Benchmark Phase 2: Consistency across all focus areas
+#
+# Top 4 models from Phase 1 × noxaudit × all focus × 3 runs = 12 runs
+# Measures run-to-run variance via Jaccard similarity of finding IDs.
+#
+# Run with: python scripts/benchmark.py matrix benchmark/corpus-phase2.yml
+
+matrix:
+  providers:
+    - name: anthropic
+      models:
+        - claude-opus-4-6
+        - claude-sonnet-4-6
+
+    - name: openai
+      models:
+        - gpt-5.4
+        - gpt-5-mini
+
+  focus:
+    - all
+
+  runs: 3
+
+  repos:
+    - name: noxaudit
+      path: ~/benchmark-repos/noxaudit
+      commit: 1503cbf22b08bbe7e64962221c7075474ed33f57
+      exclude:
+        - "*.lock"
+        - ".venv/**"
+
+  output_dir: benchmark/results
+
+  rate_limit:
+    sleep_between_runs: 5
+    backoff_on_error: 30

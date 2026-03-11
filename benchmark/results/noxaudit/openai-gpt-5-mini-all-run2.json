@@ -1,0 +1,224 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "openai",
+    "model": "gpt-5-mini",
+    "focus": "all",
+    "run": 2,
+    "started_at": "2026-03-11T14:19:25.696845",
+    "completed_at": "2026-03-11T14:22:28.640651",
+    "wall_clock_seconds": 182.94,
+    "error": null
+  },
+  "tokens": {
+    "input": 107068,
+    "output": 7083,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.0409,
+  "findings_count": 20,
+  "findings": [
+    {
+      "id": "5ebf03489815",
+      "severity": "high",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Full repository files (potential secrets) are sent to third\u2011party AI provider",
+      "description": "AnthropicProvider.submit_batch/_build_user_message include entire file contents (all code, config, .envs) and send them to Anthropic's API. This can leak secrets, credentials, or sensitive PII to an external service and is a high-risk data exposure vector.",
+      "suggestion": "Add configurable redaction and stricter defaults: by default exclude common secret/config files (e.g., *.env, *.pem, .secrets, credentials), implement an explicit allowlist, and provide an option to redact values that match common secret patterns before sending. Log a prominent warning when an audit will upload files that match secret patterns. Consider local-only dry-run analysis for repos with sensitive data.",
+      "focus": "security"
+    },
+    {
+      "id": "60ba38d00c57",
+      "severity": "high",
+      "file": "noxaudit/providers/gemini.py",
+      "line": null,
+      "title": "Full repository files (potential secrets) are sent to third\u2011party AI provider",
+      "description": "GeminiProvider.submit_batch/_build_user_message assemble and upload full file contents to Google Gemini. As above, this can leak secrets and sensitive data to an external provider if not redacted or explicitly excluded.",
+      "suggestion": "Same mitigations as for AnthropicProvider: implement configurable redaction/exclude lists, provide explicit warnings and a strict opt\u2011in to upload files that may contain secrets, and consider automatic secret scanning prior to send.",
+      "focus": "security"
+    },
+    {
+      "id": "3701a62dd32d",
+      "severity": "high",
+      "file": "noxaudit/providers/openai.py",
+      "line": null,
+      "title": "Full repository files (potential secrets) are sent to third\u2011party AI provider",
+      "description": "OpenAIProvider.submit_batch/_build_user_message include whole file contents and send them to OpenAI. This exposes the same sensitive data risk as other providers (API keys, credentials, PII).",
+      "suggestion": "Implement repository redaction/allowlist/exclude patterns and detect common secrets before any network transmission. Add an explicit config switch (e.g., 'allow_upload_of_sensitive_files') and require confirmation in CI to enable.",
+      "focus": "security"
+    },
+    {
+      "id": "911507445bd9",
+      "severity": "high",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Unpinned git install in CI Action \u2014 supply chain risk",
+      "description": "The Action step 'pip install git+https://github.com/atriumn/noxaudit.git' installs code directly from main (or default) branch without pinning to a tag/commit. This allows upstream changes to affect your CI and is a supply\u2011chain risk (remote code execution during workflow run).",
+      "suggestion": "Pin the installation to a specific, signed tag or commit (e.g., git+https://github.com/atriumn/noxaudit.git@v0.1.0). Prefer publishing pinned release tarballs on PyPI or using a checked-in wheel in the action for reproducible installs.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "eab153e79793",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Environment variable mismatch for GitHub token between Action and code/docs",
+      "description": "Docs/config reference GITHUB_TOKEN (and runner/docs mention using GITHUB_TOKEN), but the action sets GH_TOKEN in the environment: GH_TOKEN: ${{ inputs.github-token }}. Code that expects GITHUB_TOKEN (e.g., docs, README, or integrations) may not find the token. This causes silent failures when creating GitHub issues or uploading SARIF.",
+      "suggestion": "Standardize on GITHUB_TOKEN in the Action environment and document it. Set env: GITHUB_TOKEN: ${{ inputs.github-token }} and update any code or docs that reference a different variable. Validate token presence early in the action step and fail fast with a clear message if missing.",
+      "focus": "configuration"
+    },
+    {
+      "id": "c96b918ab871",
+      "severity": "medium",
+      "file": "noxaudit/reporter.py",
+      "line": null,
+      "title": "Reporter and package still reference old project name 'Nightwatch'",
+      "description": "generate_report() builds a header '# Nightwatch Report: ...' while the project is named Noxaudit. The package docstring (noxaudit/__init__.py) also refers to Nightwatch. This is documentation/code drift left over from the rename and can confuse users and automated consumers (SARIF tool metadata also references the package version/name).",
+      "suggestion": "Update reporter.generate_report header and module docstrings to use the current project name (Noxaudit). Search the codebase for remaining 'Nightwatch' occurrences and replace consistently. Update tests expecting the old string if necessary.",
+      "focus": "docs"
+    },
+    {
+      "id": "87f3517f1864",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": null,
+      "title": "Pre-pass config naming and semantics confusing/inconsistent (auto vs auto_disable)",
+      "description": "PrepassConfig uses attribute auto_disable while docs and examples refer to prepass.auto (True/False). load_config maps prepass.auto \u2192 auto_disable via negation: auto_disable = not prepass_raw.get('auto', True). This inversion is easy to misread and risks configuration mistakes. Additionally runner._maybe_prepass later ignores per-repo provider model overrides when deciding economics (uses config.model instead of per-repo/provider model).",
+      "suggestion": "Rename PrepassConfig.auto_disable to a clearer attribute (e.g., auto_enabled or auto_enable) and make load_config map config keys without double negatives. Update docs to match the runtime fields. In _maybe_prepass, resolve provider+model correctly (use config.get_model_for_provider or pricing.resolve_model_key(provider, model_for_provider)) so provider-specific model overrides are honored.",
+      "focus": "patterns"
+    },
+    {
+      "id": "c0fd99c16d69",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Inconsistent / duplicated development dependency declarations",
+      "description": "pyproject.toml contains [project.optional-dependencies] dev with pytest>=8.0 and later a [dependency-groups] dev with pytest>=9.0.2. Duplicated and inconsistent dev dependency definitions increase maintenance cost and can produce different test environments for users and CI.",
+      "suggestion": "Consolidate dev dependencies in a single canonical section (prefer PEP 621 [project.optional-dependencies] or [tool.poetry/dev-dependencies] depending on tooling). Remove duplicate 'dependency-groups' or ensure they are kept in sync. Document the canonical place to add dev deps.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "8493240b2fc8",
+      "severity": "medium",
+      "file": "scripts/setup-hooks.sh",
+      "line": null,
+      "title": "Setup script assumes 'uv' tool is installed and links Git hooks blindly",
+      "description": "scripts/setup-hooks.sh invokes 'uv run pre-commit install' and 'uv run --extra dev --extra mcp pytest' in other scripts, but 'uv' is not standard and may not be present. The script also forcefully symlinks a pre-push hook into .git/hooks without backing up an existing hook, potentially overwriting user hooks.",
+      "suggestion": "Document 'uv' as a prerequisite and fallback to 'pipx' or 'python -m' usage when uv isn't available. When installing hooks, check for existing hooks and back them up (or prompt) before replacing. Prefer 'pre-commit install' directly when pre-commit is present.",
+      "focus": "docs"
+    },
+    {
+      "id": "ef37444b11f6",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Pre-pass economics decision uses global model instead of provider-specific model",
+      "description": "_runner._maybe_prepass uses config.model (global model) to lookup pricing and determine whether to auto-enable pre-pass. If a repo overrides the model via providers.<name>.model or repo.provider_rotation, the decision may be wrong (wrong pricing tier, missed pre-pass), leading to unnecessary cost or no protection from tiered pricing.",
+      "suggestion": "Resolve the effective model for the chosen provider (use config.get_model_for_provider(provider_name) or resolve_model_key(provider, model_override)) when computing pricing and tier thresholds. Add unit tests covering provider-specific model overrides and pre-pass gating.",
+      "focus": "performance"
+    },
+    {
+      "id": "498a3e2f34e8",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Provider response JSON is parsed without schema validation",
+      "description": "AnthropicProvider._parse_response extracts JSON by stripping markdown fences and calling json.loads, then constructs Finding objects without validating against the declared FINDING_SCHEMA. Malformed or unexpected provider responses could cause exceptions or incorrect findings to be recorded.",
+      "suggestion": "Validate the parsed JSON against FINDING_SCHEMA (e.g., jsonschema) and fail gracefully (log and skip) for invalid entries. Add strict checks on required fields and types before constructing Finding objects.",
+      "focus": "security"
+    },
+    {
+      "id": "0d39fcf71ce5",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": null,
+      "title": "Provider response parsing uses fragile code block extraction and lacks JSON validation",
+      "description": "GeminiProvider._parse_text/_parse_response strip code fences heuristically and call json.loads without validating structure. This is brittle and may fail or accept invalid findings returned by model outputs. Usage metadata is parsed but not validated.",
+      "suggestion": "Use canonical JSON extraction (search for first '{' ... matching '}' range) or instruct provider to return strict JSON. Validate with jsonschema before mapping to Finding. Add robust error handling and logging for malformed provider outputs.",
+      "focus": "security"
+    },
+    {
+      "id": "5c4c97b5c2e2",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": null,
+      "title": "OpenAI provider parsing and batch handling lacks robust validation and error handling",
+      "description": "OpenAIProvider._parse_text and retrieve_batch assume specific response formats and access nested keys without defensively checking them. Faulty or unexpected API responses may raise unhandled exceptions or produce incorrect last-usage metrics.",
+      "suggestion": "Add defensive checks when accessing nested response data, validate the JSON schema, and handle incomplete responses gracefully. Add unit tests for malformed/partial batch outputs.",
+      "focus": "patterns"
+    },
+    {
+      "id": "395e8a75b6d5",
+      "severity": "low",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "Telegram notifications use Markdown parse mode \u2014 risk of Markdown injection / disclosure in messages",
+      "description": "send_telegram sends provider findings/strings with parse_mode='Markdown'. If report contents contain user secrets or untrusted markup (e.g., backticks, links), Markdown rendering could misrepresent data or expose secrets more prominently. The function also prints Telegram API responses to stdout which might include sensitive text.",
+      "suggestion": "Sanitize or escape message text before sending (use MarkdownV2 or escape special characters), and avoid printing raw API responses to logs. Offer an option to use plain text parse mode. Redact or truncate sensitive strings before including them in notifications.",
+      "focus": "security"
+    },
+    {
+      "id": "a654fb4e09e7",
+      "severity": "low",
+      "file": "CHANGELOG.md",
+      "line": null,
+      "title": "Duplicate changelog files (top-level and docs folder)",
+      "description": "There are two changelog files: CHANGELOG.md at repo root and docs/changelog.md with identical content. This duplication increases the maintenance burden and risks drift between the two copies.",
+      "suggestion": "Keep a single source of truth (prefer root CHANGELOG.md) and have docs reference or include it (symlink or use docs generator to pull from the single file). Remove duplication or document the update process.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "c6b90ef0c991",
+      "severity": "low",
+      "file": "noxaudit/__init__.py",
+      "line": 1,
+      "title": "Module docstring uses legacy project name 'Nightwatch'",
+      "description": "The package docstring says 'Nightwatch: Nightly AI-powered codebase audits.' \u2014 leftover from rename. This is a minor hygiene/documentation issue that can confuse readers and appear in packaging metadata.",
+      "suggestion": "Update the docstring to reference 'Noxaudit' and ensure packaging metadata and README are consistent.",
+      "focus": "docs"
+    },
+    {
+      "id": "69e604c4b870",
+      "severity": "low",
+      "file": "scripts/pre-push.sh",
+      "line": 1,
+      "title": "Pre-push script uses 'uv' and may run heavy test suites in developer machines",
+      "description": "scripts/pre-push.sh runs 'uv run --extra dev --extra mcp pytest' unconditionally. Running full test suites on every push may be slow and surprising for contributors and relies on 'uv' being available.",
+      "suggestion": "Make pre-push behavior configurable (run a fast subset of tests locally, or run full test suite only in CI). Document that pre-push will run tests and how to skip it. Consider using pre-commit hooks that run fast linters only on staged files.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "24160f2c9c3e",
+      "severity": "low",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "File exclusion check uses substring matching which can over-match",
+      "description": "gather_files and gather_files_combined filter excluded patterns using 'if any(ex in rel for ex in exclude)'. This substring approach can false\u2011positive exclude files whose path contains excluded fragment as a substring (e.g., 'vendorized' contains 'vendor').",
+      "suggestion": "Use pathlib.Path.match or fnmatch with glob patterns for exclusion to avoid accidental substring matches, or treat exclude patterns as path components (split on path separators) for safer matching.",
+      "focus": "patterns"
+    },
+    {
+      "id": "015829ad81aa",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Action's 'runs: steps: Install noxaudit' in action.yml installs package from git which can be slow and non-reproducible",
+      "description": "Installing the package directly from the git repository inside the action instead of installing a pinned wheel or using the action's bundled code can slow the workflow and makes results non-deterministic across runs.",
+      "suggestion": "Publish release artifacts to PyPI and pin to a release in the action, or include a minimal vendored wheel in the action, or use the packaged action release reference instead of installing from the main branch.",
+      "focus": "performance"
+    },
+    {
+      "id": "9ec453248db3",
+      "severity": "low",
+      "file": "docs/getting-started/installation.md",
+      "line": null,
+      "title": "Documentation repeatedly recommends 'uv' abruptly without fallback guidance",
+      "description": "Several docs and contributor guides instruct to use 'uv' for package management and running commands (e.g., 'uv pip install'). This may confuse users who don't have 'uv' installed; pip examples exist but guidance is inconsistent.",
+      "suggestion": "Explicitly document 'uv' as optional and provide plain 'pip' equivalents for all commands. Add a short section explaining how to install 'uv' or how to run the same commands with pip if the user doesn't want to use 'uv'.",
+      "focus": "docs"
+    }
+  ]
+}
