@@ -11,6 +11,26 @@ from noxaudit.models import FileContent
 # Max file size to include (skip large generated/vendored files)
 MAX_FILE_SIZE = 50_000  # ~50KB
 
+# Directories and path fragments that should never be audited
+DEFAULT_EXCLUDES = {
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    "site",
+    ".noxaudit",
+    ".env",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "benchmark/results",
+    "htmlcov",
+    "egg-info",
+}
+
 
 class BaseFocus(ABC):
     """Base class for audit focus areas."""
@@ -37,7 +57,7 @@ class BaseFocus(ABC):
         repo = Path(repo_path)
         exclude = set(exclude_patterns or [])
         # Always exclude these
-        exclude.update(["node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build"])
+        exclude.update(DEFAULT_EXCLUDES)
 
         files = []
         for pattern in self.get_file_patterns():
@@ -123,7 +143,7 @@ def gather_files_combined(
     """Gather files from repo matching the union of all focus areas' patterns, deduped by path."""
     repo = Path(repo_path)
     exclude = set(exclude_patterns or [])
-    exclude.update(["node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build"])
+    exclude.update(DEFAULT_EXCLUDES)
 
     # Union all patterns across focus areas
     all_patterns: set[str] = set()

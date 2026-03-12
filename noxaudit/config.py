@@ -47,6 +47,26 @@ class IssuesConfig:
 
 
 @dataclass
+class ValidateConfig:
+    """Post-audit finding validation configuration."""
+
+    enabled: bool = False
+    provider: str = "gemini"
+    model: str = ""  # empty = use provider default
+    drop_false_positives: bool = True
+    min_confidence: str = ""  # "", "low", "medium", "high"
+
+
+@dataclass
+class DedupConfig:
+    """Post-audit deduplication configuration."""
+
+    enabled: bool = True
+    provider: str = "gemini"
+    model: str = ""  # empty = use provider default
+
+
+@dataclass
 class PrepassConfig:
     """Pre-pass configuration for file filtering before main audit."""
 
@@ -103,9 +123,12 @@ class NoxauditConfig:
     decisions: DecisionConfig = field(default_factory=DecisionConfig)
     issues: IssuesConfig = field(default_factory=IssuesConfig)
     prepass: PrepassConfig = field(default_factory=PrepassConfig)
+    validate: ValidateConfig = field(default_factory=ValidateConfig)
+    dedup: DedupConfig = field(default_factory=DedupConfig)
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     reports_dir: str = ".noxaudit/reports"
     model: str = "claude-sonnet-4-5-20250929"
+    chunk_size: int = 0  # 0 = no chunking, >0 = files per chunk
 
     def get_provider_for_repo(self, repo_name: str, run_index: int = 0) -> str:
         for repo in self.repos:
@@ -200,6 +223,22 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         auto_disable=not prepass_raw.get("auto", True),
     )
 
+    validate_raw = raw.get("validate", {})
+    validate = ValidateConfig(
+        enabled=validate_raw.get("enabled", False),
+        provider=validate_raw.get("provider", "gemini"),
+        model=validate_raw.get("model", ""),
+        drop_false_positives=validate_raw.get("drop_false_positives", True),
+        min_confidence=validate_raw.get("min_confidence", ""),
+    )
+
+    dedup_raw = raw.get("dedup", {})
+    dedup = DedupConfig(
+        enabled=dedup_raw.get("enabled", True),
+        provider=dedup_raw.get("provider", "gemini"),
+        model=dedup_raw.get("model", ""),
+    )
+
     providers: dict[str, ProviderConfig] = {}
     for provider_name, provider_cfg in raw.get("providers", {}).items():
         if isinstance(provider_cfg, dict):
@@ -212,7 +251,10 @@ def load_config(config_path: str | Path | None = None) -> NoxauditConfig:
         decisions=decisions,
         issues=issues,
         prepass=prepass,
+        validate=validate,
+        dedup=dedup,
         providers=providers,
         reports_dir=raw.get("reports_dir", ".noxaudit/reports"),
         model=raw.get("model", "claude-sonnet-4-5-20250929"),
+        chunk_size=raw.get("chunk_size", 0),
     )

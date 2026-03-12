@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime
@@ -102,7 +103,7 @@ def build_combinations(matrix: dict) -> list[dict]:
                         combos.append(
                             {
                                 "repo_name": repo_cfg["name"],
-                                "repo_path": repo_cfg["path"],
+                                "repo_path": os.path.expanduser(repo_cfg["path"]),
                                 "repo_commit": repo_cfg.get("commit", ""),
                                 "provider": provider_cfg["name"],
                                 "model": model,

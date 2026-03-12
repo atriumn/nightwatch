@@ -1,0 +1,864 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "openai",
+    "model": "gpt-5.4",
+    "focus": "all",
+    "run": 2,
+    "started_at": "2026-03-11T14:13:07.922796",
+    "completed_at": "2026-03-11T14:17:13.411684",
+    "wall_clock_seconds": 245.49,
+    "error": null
+  },
+  "tokens": {
+    "input": 107068,
+    "output": 9705,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.4132,
+  "findings_count": 84,
+  "findings": [
+    {
+      "id": "b74d31c886f1",
+      "severity": "high",
+      "file": "noxaudit/issues.py",
+      "line": 23,
+      "title": "GitHub issue creation can silently skip authentication because action sets GH_TOKEN, docs require GITHUB_TOKEN, and code relies on gh auth state",
+      "description": "The issue-creation path only checks `gh auth status` and then shells out to `gh issue create`, while the GitHub Action exports `GH_TOKEN` and the documentation repeatedly instructs users to set `GITHUB_TOKEN`. This split is brittle: local users following the docs may not have `gh` authenticated, and action users may believe issue creation is configured when the CLI state check fails or behaves differently than the documented env var flow. This is a security-relevant auth/configuration mismatch because automation around issue creation can fail open into 'skipping issue creation' without a hard failure, reducing visibility of security findings.",
+      "suggestion": "Use a single supported authentication mechanism consistently. Prefer reading `GITHUB_TOKEN`/`GH_TOKEN` directly in code and fail explicitly when issue creation is enabled but authentication is unavailable. Update docs and the action to match the same variable and behavior.",
+      "focus": "security"
+    },
+    {
+      "id": "42db8f89fa2a",
+      "severity": "medium",
+      "file": "noxaudit/mcp/server.py",
+      "line": 195,
+      "title": "MCP decision recording writes to a hardcoded .noxaudit path instead of the configured decisions path",
+      "description": "`record_decision()` saves decisions to `.noxaudit/decisions.jsonl` directly, bypassing `noxaudit.yml` configuration. In repositories using a custom `decisions.path`, MCP-recorded decisions will be stored in a different location than CLI decisions. This creates authorization/integrity drift in the review workflow: users may think a finding was dismissed while the main audit pipeline still treats it as open because it reads a different file.",
+      "suggestion": "Load configuration in the MCP server and use `config.decisions.path` consistently, or derive the path from the same shared state/config loader used by the CLI.",
+      "focus": "security"
+    },
+    {
+      "id": "ecef646607d0",
+      "severity": "medium",
+      "file": "noxaudit/mcp/server.py",
+      "line": 213,
+      "title": "MCP run_audit returns raw exception text to clients",
+      "description": "`run_audit()` catches broad exceptions and returns `f\"Error running audit: {e}\"` and `f\"Error loading config: {e}\"` directly to MCP clients. Exception messages can include local filesystem paths, provider errors, configuration details, or other internal implementation data. This is an information disclosure issue, especially because MCP is explicitly exposed to external AI coding tools.",
+      "suggestion": "Return sanitized user-facing error messages and log detailed exceptions separately. Avoid exposing raw exception strings over the MCP protocol.",
+      "focus": "security"
+    },
+    {
+      "id": "26ffcc8f8799",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": 36,
+      "title": "Telegram API error handling prints full response bodies that may contain sensitive metadata",
+      "description": "On non-200 responses, the code prints `resp.text` verbatim. Third-party API error bodies can include request metadata, identifiers, or echoed content. Because notification text may summarize findings and repository information, logging the full response body increases the chance of sensitive audit context being exposed in CI logs or terminal history.",
+      "suggestion": "Log only status code and a sanitized error summary. If detailed debugging is needed, gate full response logging behind an explicit debug flag.",
+      "focus": "security"
+    },
+    {
+      "id": "ba7d12481ca2",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 61,
+      "title": "Cost/status data is always stored in a shared .noxaudit path regardless of configured repo/report paths",
+      "description": "Several persisted artifacts such as `PENDING_BATCH_FILE`, `LAST_RETRIEVED_FILE`, and the cost ledger are hardcoded under `.noxaudit/` relative to the current working directory. In multi-repo or shared-runner environments this can mix state across repositories, exposing one repo's audit metadata to another and causing retrieval or decision state confusion.",
+      "suggestion": "Derive operational state paths from configuration and/or repo-specific directories, and isolate per-repo state explicitly.",
+      "focus": "security"
+    },
+    {
+      "id": "e739bc291e7a",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": 135,
+      "title": "Provider response parsing trusts model output without validation and can crash on malformed JSON",
+      "description": "`_parse_response()` directly calls `json.loads(text.strip())` on model output after naive code-block stripping. A malformed or adversarial provider response will raise and abort the audit. Because audit output influences downstream issue creation, reporting, and suppression, this is a fail-open reliability/security concern: a provider formatting error can suppress all findings for a run.",
+      "suggestion": "Validate and handle parse failures explicitly. Wrap JSON parsing in structured error handling, reject invalid schemas safely, and fail the audit with a clear error rather than silently losing coverage.",
+      "focus": "security"
+    },
+    {
+      "id": "1c67fcdd3901",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": 210,
+      "title": "Gemini provider parses model output without defensive validation",
+      "description": "`_parse_text()` and `_parse_response()` both directly deserialize model output with `json.loads()` after simple markdown stripping. Invalid or unexpected output can terminate the audit pipeline and prevent findings from being recorded. This creates a fail-open security pattern where analysis may be skipped because of provider formatting issues.",
+      "suggestion": "Add schema validation and exception handling around provider output parsing. Surface a controlled audit failure and preserve raw output for debugging in a safe location.",
+      "focus": "security"
+    },
+    {
+      "id": "08038482765b",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": 206,
+      "title": "OpenAI provider parses model output without defensive validation",
+      "description": "`_parse_text()` directly trusts provider output and deserializes it without error handling. If the model returns malformed JSON or unexpected structure, the run can fail and produce no findings. For a security auditing tool this is a fail-open behavior because findings may disappear due to parsing errors rather than actual code quality.",
+      "suggestion": "Catch decode/schema errors, validate required fields, and turn malformed provider output into an explicit failed audit state rather than dropping coverage.",
+      "focus": "security"
+    },
+    {
+      "id": "a3c7cf434c92",
+      "severity": "high",
+      "file": "README.md",
+      "line": 46,
+      "title": "GitHub Action example uses unpinned @main reference",
+      "description": "The README instructs users to run `uses: atriumn/noxaudit/action@main`. Referencing a mutable branch for a CI action is a supply-chain security risk because future changes to `main` are executed automatically in consumers' CI with their secrets.",
+      "suggestion": "Document a pinned tag or full commit SHA for the action, and recommend SHA pinning in all workflow examples.",
+      "focus": "security"
+    },
+    {
+      "id": "49ed144dc828",
+      "severity": "high",
+      "file": "docs/integrations/github-actions.md",
+      "line": 22,
+      "title": "GitHub Actions documentation recommends mutable @main action reference",
+      "description": "The GitHub Actions integration guide uses `atriumn/noxaudit/action@main` in multiple examples. Mutable branch references expose users to supply-chain compromise if the branch is changed maliciously or unexpectedly.",
+      "suggestion": "Replace `@main` with a versioned release tag or pinned commit SHA in all examples, and explain why pinning matters.",
+      "focus": "security"
+    },
+    {
+      "id": "00e4a6273a89",
+      "severity": "high",
+      "file": "action/action.yml",
+      "line": 36,
+      "title": "Composite action installs code directly from GitHub without version pinning",
+      "description": "The action runs `pip install git+https://github.com/atriumn/noxaudit.git`, which fetches the repository head at execution time instead of a pinned release or commit. This is a high-risk supply-chain pattern because users executing the action implicitly trust whatever code is at the remote default branch at runtime.",
+      "suggestion": "Install from a pinned PyPI release or a commit SHA/tag. Avoid unpinned VCS installs in CI actions.",
+      "focus": "security"
+    },
+    {
+      "id": "77aff8f9a0b2",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": 61,
+      "title": "Action injects github-token into GH_TOKEN while docs describe GITHUB_TOKEN",
+      "description": "The composite action exports `GH_TOKEN`, while documentation for issue creation describes `GITHUB_TOKEN`. This mismatch can lead to broken authentication assumptions and skipped issue creation in some contexts, especially outside GitHub Actions.",
+      "suggestion": "Standardize on one token variable across action, code, and docs, or support both explicitly in the application with clear precedence.",
+      "focus": "security"
+    },
+    {
+      "id": "4d8621ee04d6",
+      "severity": "high",
+      "file": "README.md",
+      "line": 85,
+      "title": "README presents MCP server as current feature but package extras and code/docs are inconsistent about support scope",
+      "description": "The README documents MCP server usage as a current capability, but support depends on an optional extra and separate runtime behavior. The surrounding docs and code show partial integration and hardcoded state paths. Presenting this as turnkey can mislead users into exposing an MCP endpoint without understanding its configuration and persistence limitations.",
+      "suggestion": "Document MCP as optional/conditional, including required extra installation, state path behavior, and configuration caveats.",
+      "focus": "docs"
+    },
+    {
+      "id": "8803b8c4afde",
+      "severity": "high",
+      "file": "README.md",
+      "line": 211,
+      "title": "README installation instructions claim 'Anthropic is built-in' but pyproject declares anthropic as a normal dependency while other providers are extras",
+      "description": "The docs say Anthropic is built-in and OpenAI/Google are optional extras. That is broadly true, but the wording is imprecise because Anthropic is not a special runtime mode; it is simply the only provider shipped in base dependencies. This matters because other docs/examples also imply OpenAI support in core workflows. The documentation should be more explicit that OpenAI/Google/MCP require optional extras while base install only guarantees Anthropic support.",
+      "suggestion": "Clarify provider packaging consistently across README and installation docs: base install includes Anthropic dependency only; OpenAI, Google, and MCP require extras.",
+      "focus": "docs"
+    },
+    {
+      "id": "95fc35f3f34b",
+      "severity": "medium",
+      "file": "CONTRIBUTING.md",
+      "line": 153,
+      "title": "Contributing guide tests a nonexistent or undocumented `schedule` command",
+      "description": "The guide tells contributors to run `noxaudit schedule`, but the CLI defines no `schedule` command in `noxaudit/cli.py`. Following this instruction will fail.",
+      "suggestion": "Remove the command or replace it with a valid one such as `noxaudit status`, `noxaudit run`, or documented cron/GitHub Actions setup.",
+      "focus": "docs"
+    },
+    {
+      "id": "e8c1ebe8b74b",
+      "severity": "medium",
+      "file": "docs/contributing/index.md",
+      "line": 74,
+      "title": "Contributing docs reference `noxaudit/focus/base.py` exporting `FocusArea`, but code defines `BaseFocus`",
+      "description": "The example for adding a new focus area imports `FocusArea` from `noxaudit.focus.base`, but the actual base class is `BaseFocus`. A contributor following the docs will write code against a nonexistent symbol.",
+      "suggestion": "Update all focus-area extension examples to use `BaseFocus` and match the real method signatures.",
+      "focus": "docs"
+    },
+    {
+      "id": "173253aea854",
+      "severity": "medium",
+      "file": "CONTRIBUTING.md",
+      "line": 105,
+      "title": "Contributing guide references nonexistent `FocusArea` base class and outdated method signature",
+      "description": "The guide shows `from noxaudit.focus.base import FocusArea` and `get_prompt(self, context: dict) -> str`, but the actual code exports `BaseFocus` and `get_prompt(self) -> str` with no context parameter. This would cause contributor implementations to fail immediately.",
+      "suggestion": "Update the example to `from noxaudit.focus.base import BaseFocus` and match the current abstract method signatures.",
+      "focus": "docs"
+    },
+    {
+      "id": "eaa7b79050d6",
+      "severity": "medium",
+      "file": "README.md",
+      "line": 170,
+      "title": "README focus area table says default is all 7 areas but omits testing from the listed table",
+      "description": "The README states the default is all 7 focus areas, but the 'Focus Areas' table lists only six entries and omits `testing`. This is inconsistent with `FOCUS_AREAS` in code and with other docs.",
+      "suggestion": "Add `testing` to the table and keep the count aligned with the actual registry in `noxaudit/focus/__init__.py`.",
+      "focus": "docs"
+    },
+    {
+      "id": "61b063af25c7",
+      "severity": "medium",
+      "file": "README.md",
+      "line": 16,
+      "title": "README tagline still emphasizes 'rotating focus areas' although current CLI defaults to explicit all-or-selected focus runs",
+      "description": "The README markets the tool as 'rotating focus areas', but current CLI behavior centers on explicit `--focus` selection and `run` defaults to all areas. Rotation still exists for providers, but focus-area rotation is no longer represented in the CLI implementation the way roadmap/changelog language suggests.",
+      "suggestion": "Reword the top-level description to emphasize focused or combinable audit areas rather than nightly rotation unless the feature is still implemented elsewhere.",
+      "focus": "docs"
+    },
+    {
+      "id": "8fc0f7fdc96f",
+      "severity": "medium",
+      "file": "docs/reference/configuration.md",
+      "line": 10,
+      "title": "Configuration reference documents `repos[].provider_rotation` default as `[gemini]`, which conflicts with README examples and provider guidance centered on Anthropic default model",
+      "description": "The config reference says repo provider rotation defaults to `[gemini]`, while many docs and examples present Anthropic as the default provider/model. The code does default `provider_rotation` to `['gemini']`, so the broader docs are drifting from implementation and likely to surprise users.",
+      "suggestion": "Either change the code default to Anthropic or update all user-facing docs/examples to consistently explain that repo default provider is Gemini unless overridden.",
+      "focus": "docs"
+    },
+    {
+      "id": "fee3c379625e",
+      "severity": "medium",
+      "file": "docs/reference/cli.md",
+      "line": 3,
+      "title": "CLI reference says all commands accept `--config`, but `mcp-server` command does not use/pass configuration",
+      "description": "The reference states all commands accept `--config`, but the `mcp-server` command implementation ignores configuration and starts the server without loading it. This is misleading for users expecting MCP behavior to honor a provided config file.",
+      "suggestion": "Either make `mcp-server` load and use config, or document it as an exception until config support is implemented.",
+      "focus": "docs"
+    },
+    {
+      "id": "8a775314353f",
+      "severity": "medium",
+      "file": "docs/reference/cli.md",
+      "line": 3,
+      "title": "CLI reference documents 9 commands, but examples elsewhere still mention removed scheduling behavior",
+      "description": "The CLI reference accurately lists commands, but other documentation still references old scheduling concepts and a `schedule` command. This creates cross-document drift for the primary developer reference set.",
+      "suggestion": "Audit and align all docs with the command set in `noxaudit/cli.py`, removing stale scheduling command references.",
+      "focus": "docs"
+    },
+    {
+      "id": "5fc5e7af3405",
+      "severity": "medium",
+      "file": "docs/guides/configuration.md",
+      "line": 55,
+      "title": "Notifications config example mixes `target` field with required TELEGRAM_CHAT_ID env var in a confusing way",
+      "description": "The guide says to configure `notifications[].target`, but then says Telegram notifications require both `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. In code, `target` is passed as `chat_id` and environment lookup is only fallback. The docs imply both are required, which is not true.",
+      "suggestion": "Document precedence explicitly: `target` in config is used first; `TELEGRAM_CHAT_ID` is fallback when target is omitted.",
+      "focus": "docs"
+    },
+    {
+      "id": "4407c1a5352f",
+      "severity": "medium",
+      "file": "docs/guides/decisions.md",
+      "line": 44,
+      "title": "Decision Memory guide contains a typo that obscures actual file-change behavior",
+      "description": "The sentence says the finding will 'resurfaceeven if the decision hasn't expired'. This is minor, but it's in a key behavioral explanation and reduces clarity of an important feature.",
+      "suggestion": "Fix the typo to 'resurface even if the decision hasn't expired'.",
+      "focus": "docs"
+    },
+    {
+      "id": "f0b3d01d06ed",
+      "severity": "medium",
+      "file": "docs/reference/configuration.md",
+      "line": 24,
+      "title": "Configuration reference documents `notifications[].webhook` despite no webhook notification implementation in provided code",
+      "description": "The config reference lists a generic webhook field for notifications, but the only implemented notification channel in code is Telegram. This documents an aspirational/config-only feature as current behavior.",
+      "suggestion": "Remove undocumented webhook fields or clearly mark them as reserved/future until a webhook channel exists.",
+      "focus": "docs"
+    },
+    {
+      "id": "e4fdd75ac29d",
+      "severity": "medium",
+      "file": "docs/guides/notifications.md",
+      "line": 58,
+      "title": "Notifications guide claims support for multiple channels, but code only implements Telegram channel handling",
+      "description": "The guide discusses 'multiple notification channels', but the implementation in `runner.py` and `notifications/` only branches on `telegram`. Repeating Telegram targets is supported; multiple channel types are not.",
+      "suggestion": "Rephrase to 'multiple Telegram targets' or implement a generic channel system before documenting broader channel support.",
+      "focus": "docs"
+    },
+    {
+      "id": "4688aa977745",
+      "severity": "medium",
+      "file": "docs/integrations/github-actions.md",
+      "line": 72,
+      "title": "Action input names in docs do not match action metadata",
+      "description": "The docs list inputs `output-format`, `openai-api-key`, and `google-api-key`, but `action/action.yml` defines `format` and has no `openai-api-key` or `google-api-key` inputs. Users following the docs will configure unsupported inputs.",
+      "suggestion": "Align the documentation with the actual action metadata, or add the missing inputs to `action.yml`.",
+      "focus": "docs"
+    },
+    {
+      "id": "799974222cce",
+      "severity": "high",
+      "file": "docs/integrations/github-actions.md",
+      "line": 72,
+      "title": "GitHub Actions docs describe OpenAI and Google API key inputs that the action does not support",
+      "description": "The action metadata only accepts `anthropic-api-key`, but the docs say `openai-api-key` and `google-api-key` are valid inputs. Workflows using those documented fields will fail to authenticate non-Anthropic providers.",
+      "suggestion": "Either implement those action inputs and pass them into the environment, or remove them from the docs until supported.",
+      "focus": "docs"
+    },
+    {
+      "id": "a96c5284bb38",
+      "severity": "medium",
+      "file": "docs/integrations/github-actions.md",
+      "line": 72,
+      "title": "GitHub Actions docs describe `output-format` input, but action uses `format`",
+      "description": "The documentation tells users to set `output-format`, while `action/action.yml` defines the input as `format`. This mismatch means SARIF examples copied from docs will not work as written.",
+      "suggestion": "Rename the documented field to `format`, or alias `output-format` in the action for backwards compatibility.",
+      "focus": "docs"
+    },
+    {
+      "id": "ef1422212c1c",
+      "severity": "medium",
+      "file": "docs/integrations/github-issues.md",
+      "line": 12,
+      "title": "GitHub Issues docs instruct users to set GITHUB_TOKEN, but action exports GH_TOKEN and code uses gh auth status",
+      "description": "The docs present `GITHUB_TOKEN` as the configuration mechanism, while the composite action exports `GH_TOKEN` and the code never reads `GITHUB_TOKEN` directly. This can mislead users about how authentication actually works.",
+      "suggestion": "Document the real authentication path consistently across code, action, and docs.",
+      "focus": "docs"
+    },
+    {
+      "id": "bba41026b2ce",
+      "severity": "medium",
+      "file": "docs/getting-started/first-audit.md",
+      "line": 88,
+      "title": "Status output example uses abbreviated model name that does not match actual CLI output",
+      "description": "The docs show `Provider: anthropic (claude-sonnet-4-5)` in estimate/status examples, but code prints provider/model values based on configured model key and commonly uses `claude-sonnet-4-5-20250929`. This inconsistency makes copy/paste expectations drift from real output.",
+      "suggestion": "Normalize example outputs to the exact model strings used by the application or explicitly note when values are abbreviated for readability.",
+      "focus": "docs"
+    },
+    {
+      "id": "a47737de1a10",
+      "severity": "medium",
+      "file": "docs/reference/providers.md",
+      "line": 55,
+      "title": "Provider reference states Anthropic uses batch API by default, but sync runner semantics differ across providers",
+      "description": "The docs imply Anthropic always uses the batch API by default. In code, `AnthropicProvider.run_audit()` does submit and poll a batch, but `submit/retrieve` is still a separate user-facing workflow. The current wording blurs the distinction between internal provider transport and CLI command behavior.",
+      "suggestion": "Clarify that local `run` may still poll synchronously while `submit/retrieve` exposes an explicit asynchronous workflow.",
+      "focus": "docs"
+    },
+    {
+      "id": "7b95ef43a7aa",
+      "severity": "medium",
+      "file": "docs/roadmap/08-saas-scheduling.md",
+      "line": 61,
+      "title": "Roadmap cross-reference points to non-provided internal docs",
+      "description": "The roadmap references `03.5-saas-application.md`, `06-product-quality-focus-areas.md`, and `../STRATEGY.md`, but these files are not among the provided docs set and may be stale or missing from the published site navigation. This is a broken cross-reference risk.",
+      "suggestion": "Verify the referenced files exist in the docs build, or remove/replace with valid links.",
+      "focus": "docs"
+    },
+    {
+      "id": "5226e97f8376",
+      "severity": "medium",
+      "file": "CHANGELOG.md",
+      "line": 20,
+      "title": "Changelog claims 0.1.0 added 'Two-pass audit for large codebases' while current docs/code consistently call the feature pre-pass",
+      "description": "The changelog entry uses old terminology ('Two-pass audit'), while the implementation and docs now refer to pre-pass triage/classification. This is historical drift that can confuse users comparing changelog items to configuration keys like `prepass`.",
+      "suggestion": "Clarify the changelog entry as 'pre-pass / two-pass file triage' or note the rename explicitly.",
+      "focus": "docs"
+    },
+    {
+      "id": "a1714b2dac9e",
+      "severity": "medium",
+      "file": "docs/changelog.md",
+      "line": 20,
+      "title": "Duplicated changelog contains same outdated 'Two-pass audit' terminology",
+      "description": "The docs copy of the changelog repeats the outdated feature naming, compounding documentation drift across two files.",
+      "suggestion": "Update both changelog copies together or eliminate duplication by sourcing one from the other.",
+      "focus": "docs"
+    },
+    {
+      "id": "a473d38a17fd",
+      "severity": "medium",
+      "file": "noxaudit/__init__.py",
+      "line": 1,
+      "title": "Package docstring still uses old project name 'Nightwatch'",
+      "description": "The package docstring says `\"\"\"Nightwatch: Nightly AI-powered codebase audits.\"\"\"`, while the project has been renamed to Noxaudit everywhere else. This is a stale identifier at the package root.",
+      "suggestion": "Rename the docstring to Noxaudit to match package and user-facing docs.",
+      "focus": "docs"
+    },
+    {
+      "id": "1bb55e57ebca",
+      "severity": "medium",
+      "file": "noxaudit/reporter.py",
+      "line": 17,
+      "title": "Generated report title still says 'Nightwatch Report'",
+      "description": "Reports generated by `generate_report()` begin with `# Nightwatch Report:` even though the project has been renamed to Noxaudit. This is user-visible drift and can confuse downstream integrations or users reading reports.",
+      "suggestion": "Change the title prefix to `# Noxaudit Report:` and update any tests/examples accordingly.",
+      "focus": "docs"
+    },
+    {
+      "id": "8e8bee2fcbd5",
+      "severity": "low",
+      "file": "action/action.yml",
+      "line": 10,
+      "title": "Action input description still refers to today's schedule",
+      "description": "The `focus` input description says `Defaults to today's schedule`, but the current product/docs have removed CLI scheduling and default to all focus areas. This is stale action metadata.",
+      "suggestion": "Update the description to reflect actual default behavior, e.g. 'Defaults to all focus areas.'",
+      "focus": "docs"
+    },
+    {
+      "id": "319dc0124f5f",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": 42,
+      "title": "PrepassConfig and YAML mapping use inverted naming (`auto_disable` in code vs `auto` in config/docs)",
+      "description": "The dominant configuration pattern in the project is that dataclass field names match YAML keys (`enabled`, `threshold_tokens`, etc.), but pre-pass deviates: docs and YAML use `prepass.auto`, while the dataclass stores `auto_disable` and `load_config()` inverts the value. This asymmetry makes maintenance harder and increases the risk of future bugs.",
+      "suggestion": "Rename the dataclass field to `auto` and keep booleans aligned end-to-end, or add explicit comments/tests documenting the inversion if backward compatibility requires it.",
+      "focus": "patterns"
+    },
+    {
+      "id": "e2625ced772d",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 78,
+      "title": "Provider-specific pricing decision uses global model string instead of resolved provider-specific model",
+      "description": "Most of the codebase uses helper methods like `config.get_provider_for_repo()`/`get_model_for_provider()`, but `_maybe_prepass()` directly looks up `MODEL_PRICING` using `config.model`. In repos with provider-specific model overrides, this bypasses the established configuration abstraction and can make pre-pass decisions based on the wrong model.",
+      "suggestion": "Use `config.get_model_for_provider(provider_name)` and resolve via `resolve_model_key()` consistently, matching the estimate/cost code path.",
+      "focus": "patterns"
+    },
+    {
+      "id": "2731371e9d71",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 283,
+      "title": "Runner instantiates providers with global model instead of provider-specific override",
+      "description": "The config layer provides `get_model_for_provider()`, implying the dominant pattern should support provider-specific model overrides. However, `_submit_repo`, `_retrieve_repo`, and `_run_repo_sync` instantiate providers with `model=config.model`, bypassing per-provider overrides entirely.",
+      "suggestion": "Use `config.get_model_for_provider(pname)` when constructing provider instances and when logging/storing model metadata.",
+      "focus": "patterns"
+    },
+    {
+      "id": "7adb401c0d42",
+      "severity": "medium",
+      "file": "noxaudit/cli.py",
+      "line": 315,
+      "title": "CLI baseline command catches focus/severity filtering inline while other command validation is delegated to helpers",
+      "description": "The CLI generally centralizes parsing/validation in shared helpers like `_resolve_focus_names`, but `baseline` performs its own ad hoc filtering via `_load_findings_for_baseline`. This diverges from the established command parsing pattern and increases the chance of inconsistent focus/severity handling across commands.",
+      "suggestion": "Extract shared parsing/validation helpers for repo/focus/severity filters and reuse them across `run`, `estimate`, `baseline`, and retrieval paths.",
+      "focus": "patterns"
+    },
+    {
+      "id": "5e75190727d4",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": 119,
+      "title": "Provider parsing and finding construction logic is duplicated across all providers",
+      "description": "Anthropic, Gemini, and OpenAI each implement near-identical logic for formatting files, stripping code fences, deserializing findings, and generating finding IDs. This duplication indicates architectural drift instead of a shared provider parsing utility.",
+      "suggestion": "Move shared response parsing, file formatting, and finding-id generation into `BaseProvider` or a shared helper module to enforce consistent behavior.",
+      "focus": "patterns"
+    },
+    {
+      "id": "65d751e84feb",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": 180,
+      "title": "Gemini provider duplicates common provider message formatting and parse logic",
+      "description": "This file repeats the same `_build_user_message`, `_format_files`, JSON code-block stripping, and finding construction pattern seen in other providers. Maintaining three nearly identical implementations increases drift risk.",
+      "suggestion": "Abstract common provider request/response formatting into shared utilities or base class methods.",
+      "focus": "patterns"
+    },
+    {
+      "id": "8d232d07e306",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": 176,
+      "title": "OpenAI provider duplicates common provider request/response formatting and parse logic",
+      "description": "The OpenAI provider reproduces the same finding-schema formatting and parsing workflow used in Anthropic and Gemini. This is a maintainability inconsistency relative to the apparent shared-provider architecture.",
+      "suggestion": "Consolidate common provider behaviors in `BaseProvider` and leave only transport-specific code in subclasses.",
+      "focus": "patterns"
+    },
+    {
+      "id": "b2c2defe9fe6",
+      "severity": "low",
+      "file": "noxaudit/reporter.py",
+      "line": 80,
+      "title": "Notification icon map omits testing focus area even though it is a first-class focus",
+      "description": "The codebase consistently treats `testing` as one of seven focus areas, but `format_notification()` does not define a dedicated icon for it and falls back to the generic icon. This is a minor consistency deviation.",
+      "suggestion": "Add a `testing` icon entry so all registered focus areas are handled explicitly.",
+      "focus": "patterns"
+    },
+    {
+      "id": "69a982b82f2a",
+      "severity": "medium",
+      "file": "tests/test_cli_integration.py",
+      "line": 37,
+      "title": "Test config helper uses unsupported repo key `provider` instead of real `provider_rotation`",
+      "description": "The dominant configuration pattern in code is `provider_rotation`, but the integration test helper writes `{\"provider\": provider}` inside repo config. Because `load_config()` ignores this field, these tests are not exercising the documented configuration path and may give false confidence about provider selection behavior.",
+      "suggestion": "Update test helpers to use `provider_rotation: [provider]` so integration tests reflect the real config schema.",
+      "focus": "patterns"
+    },
+    {
+      "id": "a018995506c7",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": 49,
+      "title": "Action uses `format` input name while docs/examples elsewhere use `output-format`",
+      "description": "The project currently uses two naming patterns for the same concern: action metadata expects `format`, while multiple docs describe `output-format`. This inconsistency creates architectural drift across interface surfaces.",
+      "suggestion": "Standardize on one input name across the action, docs, and examples; consider supporting both temporarily for compatibility.",
+      "focus": "patterns"
+    },
+    {
+      "id": "b567167413a9",
+      "severity": "high",
+      "file": "noxaudit/issues.py",
+      "line": 1,
+      "title": "GitHub issue creation workflow has no dedicated tests despite mutating external state and using auth-sensitive logic",
+      "description": "`create_issues_for_findings()` is production mutation code that performs authentication checks, deduplication, rate limiting, and issue creation via the GitHub CLI, but there are no corresponding unit or integration tests in the provided suite. This is a critical untested path because failures can silently suppress or duplicate issue creation.",
+      "suggestion": "Add tests covering disabled mode, missing gh/auth, threshold filtering, deduplication via `_issue_exists`, command construction, and error handling for failed subprocess calls.",
+      "focus": "testing"
+    },
+    {
+      "id": "727469046f28",
+      "severity": "high",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": 1,
+      "title": "Telegram notification sending has no direct tests covering success, failure, and missing-env paths",
+      "description": "Notification delivery is user-facing production behavior, but there are no tests for `send_telegram()`. Missing coverage includes env var handling, chat-id precedence, HTTP failure behavior, and timeout/error handling.",
+      "suggestion": "Add focused unit tests mocking `httpx.post` and environment variables to cover success, missing token/chat ID, non-200 responses, and exceptions/timeouts.",
+      "focus": "testing"
+    },
+    {
+      "id": "3edfd14ee6dd",
+      "severity": "high",
+      "file": "noxaudit/mcp/server.py",
+      "line": 1,
+      "title": "MCP `run_audit` tool has no tests despite executing end-to-end audit logic",
+      "description": "The MCP server tests cover `get_findings`, `get_health_summary`, `get_findings_for_diff`, and `record_decision`, but there are no tests for the `run_audit` MCP tool. This leaves an externally exposed execution path unverified, including config load failures, dry-run behavior, exception handling, and output formatting.",
+      "suggestion": "Add tests for successful audit invocation, config-load failures, runner exceptions, dry-run mode, and empty-result handling.",
+      "focus": "testing"
+    },
+    {
+      "id": "e0f77667cd1b",
+      "severity": "medium",
+      "file": "noxaudit/mcp/server.py",
+      "line": 176,
+      "title": "MCP record_decision tests do not cover configured decisions path mismatch",
+      "description": "Tests verify that `record_decision()` writes a decision file, but they do not exercise the case where `noxaudit.yml` specifies a custom `decisions.path`. This misses a real regression risk in a user-visible path.",
+      "suggestion": "Add tests that create a config with custom decisions path and assert MCP writes to the configured location once the implementation is fixed.",
+      "focus": "testing"
+    },
+    {
+      "id": "25924f88c72c",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 78,
+      "title": "No tests cover provider-specific model overrides in runner execution paths",
+      "description": "`NoxauditConfig.get_model_for_provider()` exists and is documented, but there are no tests showing that `run_audit`, `submit_audit`, or `retrieve_audit` honor provider-specific model overrides. This gap likely allowed the current override bypass to persist.",
+      "suggestion": "Add integration tests with `providers.<name>.model` config and assert providers are instantiated and logged with the override model.",
+      "focus": "testing"
+    },
+    {
+      "id": "5d86a0fd9a34",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": 128,
+      "title": "No tests cover malformed provider JSON responses or parse failures",
+      "description": "Provider tests validate happy-path parsing and code-fence stripping, but there are no negative tests for malformed JSON, empty content, missing keys, or unexpected provider payloads. Error-path coverage is especially important because parser failures currently abort audits.",
+      "suggestion": "Add tests asserting controlled failure behavior for invalid JSON and malformed structures, then implement matching error handling.",
+      "focus": "testing"
+    },
+    {
+      "id": "5f3682cc082c",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": 198,
+      "title": "No negative tests cover malformed Gemini response parsing",
+      "description": "The Gemini provider tests focus on successful batch and parse flows. They do not cover invalid JSON, empty candidates, malformed usage metadata, or download content errors.",
+      "suggestion": "Add failure-path unit tests and harden parsing to keep audit behavior explicit on bad provider output.",
+      "focus": "testing"
+    },
+    {
+      "id": "fd45d283974b",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": 194,
+      "title": "No negative tests cover malformed OpenAI response parsing",
+      "description": "OpenAI provider tests cover normal parsing and polling, but they do not exercise malformed JSON, missing choices, non-200 body structures, or unexpected usage payloads.",
+      "suggestion": "Add tests for malformed response bodies and assert deterministic failure behavior.",
+      "focus": "testing"
+    },
+    {
+      "id": "c758cc71cec0",
+      "severity": "medium",
+      "file": "noxaudit/cli.py",
+      "line": 47,
+      "title": "No tests directly cover `report` command filtering and file-selection behavior",
+      "description": "The provided CLI tests cover status, run dry-run, submit dry-run, and integration flows, but there are no tests for `report` command behavior. That leaves repo/focus filtering, empty-report messages, and latest-file selection unverified.",
+      "suggestion": "Add CLI tests for no reports, latest report selection, repo filtering, focus filtering, and mismatched filter handling.",
+      "focus": "testing"
+    },
+    {
+      "id": "da2e1503793e",
+      "severity": "medium",
+      "file": "noxaudit/cli.py",
+      "line": 277,
+      "title": "No tests cover MCP CLI command fallback when optional dependency is missing",
+      "description": "The `mcp-server` command has an ImportError fallback path that prints install guidance and exits, but there are no tests for this branch. Optional-dependency UX is currently unverified.",
+      "suggestion": "Add a CLI test that simulates missing `noxaudit.mcp.server` import and asserts the command exits with the expected guidance.",
+      "focus": "testing"
+    },
+    {
+      "id": "92c0f5adda96",
+      "severity": "medium",
+      "file": "noxaudit/cost_ledger.py",
+      "line": 1,
+      "title": "Cost ledger reads/writes use implicit default text encoding and unguarded JSON schema assumptions",
+      "description": "The ledger code works, but it reads and writes files without explicit encoding and accepts partially malformed JSON records into downstream processing. This is a moderate test gap and hygiene issue because cross-platform behavior and malformed-entry handling are only partially covered.",
+      "suggestion": "Use explicit UTF-8 encoding and add tests for non-UTF data or missing expected keys in ledger entries.",
+      "focus": "testing"
+    },
+    {
+      "id": "87af80ad9331",
+      "severity": "high",
+      "file": "focus_prompts/dependencies.md",
+      "line": 1,
+      "title": "Dependency prompt file appears orphaned from package build/runtime outside repository layout assumptions",
+      "description": "Prompt loading relies on filesystem-relative lookup from package source (`Path(__file__).parent.parent.parent / 'focus_prompts'`). This works in the repo but is fragile for installed distributions unless prompt files are packaged correctly. The provided build config only packages `noxaudit`, with no explicit inclusion of `focus_prompts`. That can make installed focus classes unable to load their prompt templates.",
+      "suggestion": "Include `focus_prompts` as package data in the build and add packaging tests that verify prompt files are available from an installed wheel/sdist.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "bfbb75d62f46",
+      "severity": "high",
+      "file": "focus_prompts/docs.md",
+      "line": 1,
+      "title": "Prompt template directory is not declared in build config and may be omitted from distributions",
+      "description": "All focus classes load templates from the top-level `focus_prompts/` directory, but `pyproject.toml` only declares `packages = [\"noxaudit\"]` for wheels. Without explicit package-data inclusion, installed distributions may miss these files, leaving runtime prompt loading broken.",
+      "suggestion": "Declare prompt files as package data or move them under the `noxaudit` package. Add a packaging test to verify prompt availability after installation.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "b1f01ee768e6",
+      "severity": "high",
+      "file": "focus_prompts/hygiene.md",
+      "line": 1,
+      "title": "Top-level prompt template files are likely omitted from build artifacts",
+      "description": "The prompt templates are runtime dependencies but are stored outside the package without an obvious inclusion rule in build metadata. This is stale packaging configuration that can result in broken installs.",
+      "suggestion": "Package the prompt templates explicitly and test from wheel/sdist artifacts.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "83b9751a591b",
+      "severity": "high",
+      "file": "focus_prompts/patterns.md",
+      "line": 1,
+      "title": "Prompt templates depend on repo-local filesystem layout rather than packaged resources",
+      "description": "The prompt-loading mechanism uses relative paths to the source tree, which is a hygiene/packaging smell and likely to break once installed as a package.",
+      "suggestion": "Use `importlib.resources` and package the prompt files under `noxaudit/`.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "ec53468f299d",
+      "severity": "high",
+      "file": "focus_prompts/performance.md",
+      "line": 1,
+      "title": "Prompt file runtime dependency is not covered by packaging metadata",
+      "description": "This prompt file is required at runtime but not obviously included in the wheel configuration, risking orphaned runtime dependencies.",
+      "suggestion": "Move prompts into the package and include them via package data.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "dca7261ac145",
+      "severity": "high",
+      "file": "focus_prompts/security.md",
+      "line": 1,
+      "title": "Security prompt template may be missing from built distributions",
+      "description": "SecurityFocus loads this file dynamically, but the build configuration does not show explicit inclusion of top-level prompt files. That creates a risk of runtime fallback/recursion issues or missing prompt content in published artifacts.",
+      "suggestion": "Package prompt templates explicitly and add an install-time smoke test.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "b6a7a5bbdcdc",
+      "severity": "high",
+      "file": "focus_prompts/testing.md",
+      "line": 1,
+      "title": "Testing prompt template likely omitted from wheel packaging",
+      "description": "Like the other focus prompts, this file is a runtime asset outside the declared package path and may be missing after installation.",
+      "suggestion": "Package prompt resources under `noxaudit` and load them with resource APIs.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "04cd2aadb286",
+      "severity": "high",
+      "file": "pyproject.toml",
+      "line": 38,
+      "title": "Build configuration packages only `noxaudit` and omits top-level runtime prompt templates",
+      "description": "The wheel target declares only `packages = [\"noxaudit\"]`, but runtime prompt files live in `focus_prompts/` outside the package tree. This is a high-severity hygiene issue because installed wheels may lack required runtime assets.",
+      "suggestion": "Include `focus_prompts` in the build or relocate them under `noxaudit/` and load via `importlib.resources`.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "fde6813adc52",
+      "severity": "medium",
+      "file": "CHANGELOG.md",
+      "line": 1,
+      "title": "Root changelog is duplicated under docs/changelog.md",
+      "description": "The changelog content is duplicated verbatim in two files. Duplicated docs are a maintenance burden and have already drifted in terminology elsewhere.",
+      "suggestion": "Keep a single source of truth and reference or generate the docs page from it.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "b1123964e5f4",
+      "severity": "medium",
+      "file": "docs/changelog.md",
+      "line": 1,
+      "title": "Docs changelog duplicates root CHANGELOG.md",
+      "description": "Maintaining two copies of the same changelog increases drift risk and creates unnecessary documentation debris.",
+      "suggestion": "Generate this page from the root changelog or remove the duplicate.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "7f9c699f2b33",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": 63,
+      "title": "Dependency definitions are duplicated between `[project.optional-dependencies].dev` and `[dependency-groups].dev`",
+      "description": "The project declares dev dependencies in two separate places with different version ranges (`pytest>=8.0` vs `pytest>=9.0.2`, `ruff>=0.8` vs `ruff>=0.15.1`). This stale configuration duplication can confuse contributors and produce inconsistent environments.",
+      "suggestion": "Choose one dev dependency mechanism and keep versions synchronized, or document why both are needed.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "5327dfc6fed4",
+      "severity": "low",
+      "file": "tests/test_cli.py",
+      "line": 3,
+      "title": "Extra blank line after future import section indicates minor test file debris",
+      "description": "`tests/test_cli.py` contains an unnecessary blank line after `from __future__ import annotations`, which is minor but indicative of inconsistent file hygiene.",
+      "suggestion": "Remove the extra blank line and let formatter/linter enforce consistent spacing.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "f370a40921b4",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": 48,
+      "title": "Prompt loading fallback can recurse back into abstract `get_prompt` implementation semantics",
+      "description": "`get_prompt_from_file()` returns `self.get_prompt()` when the prompt file is missing. Since each concrete `get_prompt()` implementation simply calls `get_prompt_from_file()`, missing prompt assets would recurse infinitely rather than fail clearly. This is both hygiene debt and a packaging hazard.",
+      "suggestion": "Raise a clear `FileNotFoundError`/runtime error when a prompt file is missing, and test that failure mode.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "ea5658948d0b",
+      "severity": "medium",
+      "file": "scripts/setup-hooks.sh",
+      "line": 10,
+      "title": "Hook setup script hardcodes a symlink into .git/hooks and can leave stale hooks in worktree variations",
+      "description": "The script directly symlinks `pre-push.sh` into `.git/hooks/pre-push`, which may be fragile in nonstandard git setups and can leave stale hook state. Since pre-commit is already used, this is inconsistent hook management debris.",
+      "suggestion": "Manage both hooks through pre-commit where possible, or document/handle nonstandard git dir layouts more robustly.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "69d8bda59fe6",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": 17,
+      "title": "Production dependency on `httpx` appears to exist solely for Telegram notifications and may be optional",
+      "description": "The core dependencies include `httpx`, but the only evident production use in the provided code is the Telegram notification channel. If notifications are optional, this could be an unnecessary base dependency.",
+      "suggestion": "Consider moving Telegram/httpx support behind an optional extra, or verify whether other runtime modules require it.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "b49076559122",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": 55,
+      "title": "Project uses duplicate dependency management schemes with diverging versions",
+      "description": "The manifest declares dev tooling in both `project.optional-dependencies.dev` and `dependency-groups.dev`, with materially different versions. This can create environment drift and dependency confusion across contributors and CI.",
+      "suggestion": "Unify on one dependency declaration strategy and keep versions consistent.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "0329bf8a31a6",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": 28,
+      "title": "Optional dependency versions are loosely pinned with no lock file provided",
+      "description": "The project defines several optional extras (`openai`, `google`, `mcp`, docs/dev) but no lock file is provided in the reviewed files. For an application/tooling project, this increases reproducibility risk and makes supply-chain auditing harder.",
+      "suggestion": "Commit a lock file or document a reproducible environment strategy (e.g. `uv.lock`) for contributors and CI.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "37eb5761da1b",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": 36,
+      "title": "GitHub Action bypasses declared package metadata by installing directly from git URL",
+      "description": "Instead of consuming a released package version, the action installs from a git URL. This bypasses normal packaging/release dependency controls and can produce different dependency trees over time.",
+      "suggestion": "Install a pinned package release from PyPI or a pinned commit/tag, and align action behavior with released artifact testing.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "5b125d447851",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": 13,
+      "title": "Keywords still include old project name `nightwatch`",
+      "description": "The keyword list includes `nightwatch`, reflecting the old project name. This is minor metadata drift but can confuse package discovery and branding consistency.",
+      "suggestion": "Replace or supplement the old keyword with current naming that reflects Noxaudit.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "6cc754392884",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": 1,
+      "title": "OpenAI provider synchronous `run_audit` uses batch submit-and-poll, causing long-latency local runs",
+      "description": "Unlike the Gemini provider, OpenAI `run_audit()` always submits a batch job and polls every 60 seconds until completion. For local CLI use this is a heavier, higher-latency execution model than necessary and deviates from the file's own docstring ('standard API for sync').",
+      "suggestion": "Implement a true synchronous API path for local runs, and reserve batch mode for `submit`/`retrieve` workflows.",
+      "focus": "performance"
+    },
+    {
+      "id": "5ba063193a86",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": 104,
+      "title": "Anthropic synchronous run polls in fixed 60-second intervals",
+      "description": "`run_audit()` submits a batch and then sleeps for 60 seconds between status checks. For small/local runs this creates unnecessarily coarse latency and poor UX, especially when results are ready much sooner.",
+      "suggestion": "Use adaptive backoff or shorter initial polling intervals, or a synchronous endpoint when appropriate.",
+      "focus": "performance"
+    },
+    {
+      "id": "4169abb3c377",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": 166,
+      "title": "OpenAI synchronous run polls in fixed 60-second intervals",
+      "description": "The provider waits in a loop with `time.sleep(60)`. This is a throughput and responsiveness penalty for interactive CLI usage and can significantly inflate total audit time.",
+      "suggestion": "Use shorter/adaptive polling intervals or a dedicated sync API for local runs.",
+      "focus": "performance"
+    },
+    {
+      "id": "6d8b651638d4",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": 42,
+      "title": "File gathering uses repeated glob scans per pattern, increasing I/O for large repos",
+      "description": "`gather_files()` and `gather_files_combined()` iterate `repo.glob(pattern)` for each pattern separately. With many overlapping recursive globs and large repositories, this causes repeated full-tree traversals and unnecessary filesystem work.",
+      "suggestion": "Walk the tree once and match files against compiled pattern sets, or cache directory traversal results before filtering.",
+      "focus": "performance"
+    },
+    {
+      "id": "59ab801ad442",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": 410,
+      "title": "Runner loads all decisions for every repo/audit invocation instead of indexing or filtering once",
+      "description": "Each run path loads the full decisions file and then filters findings in memory. As `.noxaudit/decisions.jsonl` grows, repeated full-file reads across repos and commands will add avoidable overhead.",
+      "suggestion": "Index decisions once per command invocation, or cache parsed decisions and filter by repo/finding ID without re-reading unnecessarily.",
+      "focus": "performance"
+    },
+    {
+      "id": "46e956b300d0",
+      "severity": "low",
+      "file": "noxaudit/reporter.py",
+      "line": 73,
+      "title": "Notification formatting recalculates severity counts with multiple passes over findings",
+      "description": "`format_notification()` sums high, medium, and low findings using three separate generator expressions. This is minor now, but it is an avoidable repeated scan over the same list.",
+      "suggestion": "Count severities in a single pass for simpler and slightly more efficient code.",
+      "focus": "performance"
+    }
+  ]
+}

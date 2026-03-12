@@ -1,0 +1,224 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "openai",
+    "model": "gpt-5-mini",
+    "focus": "all",
+    "run": 3,
+    "started_at": "2026-03-11T14:22:33.666113",
+    "completed_at": "2026-03-11T14:42:38.425590",
+    "wall_clock_seconds": 1204.76,
+    "error": null
+  },
+  "tokens": {
+    "input": 107068,
+    "output": 6604,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.04,
+  "findings_count": 20,
+  "findings": [
+    {
+      "id": "90ce2e5a9b3e",
+      "severity": "medium",
+      "file": "noxaudit/__init__.py",
+      "line": 1,
+      "title": "Library docstring still uses old product name 'Nightwatch'",
+      "description": "The package docstring at the top of noxaudit/__init__.py reads: \"Nightwatch: Nightly AI-powered codebase audits.\" The project has been rebranded to Noxaudit across other files and docs, so this is stale and may confuse users or automated tooling that extracts package metadata.",
+      "suggestion": "Update the module docstring to reference 'Noxaudit' (or keep it generic). Example: \"Noxaudit: Nightly AI-powered codebase audits.\"",
+      "focus": "docs"
+    },
+    {
+      "id": "a5571837cf61",
+      "severity": "medium",
+      "file": "noxaudit/reporter.py",
+      "line": null,
+      "title": "Report header uses old product name 'Nightwatch'",
+      "description": "generate_report() emits a markdown heading '# Nightwatch Report: ...' which does not match the project's current name (Noxaudit). This causes inconsistent user-facing output and diverging branding across reports and documentation.",
+      "suggestion": "Change the generated report title to reference Noxaudit (or derive from package metadata). Example: '# Noxaudit Report: {_focus_display(result.focus)}'.",
+      "focus": "docs"
+    },
+    {
+      "id": "7f7ce16bcdb7",
+      "severity": "high",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Action installs repository code from the default branch without pinning (supply-chain risk)",
+      "description": "The composite Action installs the package with `pip install git+https://github.com/atriumn/noxaudit.git` (no ref or pinned commit). Installing unpinned code from a VCS URL in CI exposes workflows to supply-chain risks: a malicious commit or branch takeover could alter the installed code used in your actions.",
+      "suggestion": "Pin the installer to a specific commit SHA / tag (for example `git+https://github.com/atriumn/noxaudit.git@v0.1.0`) or publish and use a fixed package version from PyPI. Prefer pinned, audited artifacts in CI actions.",
+      "focus": "security"
+    },
+    {
+      "id": "680e3771fca3",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub token environment variable name mismatch",
+      "description": "The action sets GH_TOKEN in the env block (`GH_TOKEN: ${{ inputs.github-token }}`) but project documentation and some integration instructions reference GITHUB_TOKEN (the standard secret name provided by GitHub Actions). Other code/docs (docs/integrations/github-issues.md) instruct using GITHUB_TOKEN. This mismatch may break workflows that rely on the standard GITHUB_TOKEN env var.",
+      "suggestion": "Use the conventional GITHUB_TOKEN environment variable name (set `GITHUB_TOKEN: ${{ inputs.github-token }}`), or clearly document and wire the alternate name consistently across docs and code. Ensure the code paths that expect GITHUB_TOKEN are satisfied by the action environment.",
+      "focus": "configuration"
+    },
+    {
+      "id": "ccdd5f41a783",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": null,
+      "title": "Pre-pass config field name differs from docs (auto vs auto_disable)",
+      "description": "The dataclass PrepassConfig exposes `auto_disable: bool = False` while documentation and examples use `prepass.auto` (true/false). load_config() maps the YAML `auto` key into `auto_disable = not prepass_raw.get('auto', True)`. This inversion and naming mismatch is confusing and non-intuitive for users editing their config.",
+      "suggestion": "Either (A) change PrepassConfig to expose `auto: bool = True` and use that name throughout code and docs, or (B) update all docs and examples to use `prepass.auto_disable` and explain the semantics. Keep naming consistent and avoid boolean inversion surprises.",
+      "focus": "docs"
+    },
+    {
+      "id": "2051dd06d5fe",
+      "severity": "medium",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Duplicate / inconsistent dev dependency declarations",
+      "description": "pyproject.toml contains dev/test dependencies in two places: [project.optional-dependencies].dev and [dependency-groups].dev with different version constraints (pytest>=8.0 vs pytest>=9.0.2, ruff versions differ). This duplication can lead to confusion or inconsistent environments for contributors and CI.",
+      "suggestion": "Consolidate dev dependencies to a single location (prefer the PEP-621 `optional-dependencies` or the dependency-groups used by your build tooling) and keep version pins consistent. Document which section is authoritative for contributors and CI.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "fbc17d10d7d6",
+      "severity": "low",
+      "file": "scripts/setup-hooks.sh",
+      "line": null,
+      "title": "Script uses .git/hooks symlink without checking for git repo",
+      "description": "scripts/setup-hooks.sh symlinks the pre-push hook into the repo's .git/hooks directory without checking whether the current checkout is actually a git repo. Running this script outside a git worktree may produce confusing errors.",
+      "suggestion": "Add a guard that checks for .git directory existence and aborts with a helpful message if missing. Example: if [ ! -d \"$REPO_ROOT/.git\" ]; then echo 'Not a git repo'; exit 1; fi",
+      "focus": "hygiene"
+    },
+    {
+      "id": "6ad5009658b0",
+      "severity": "medium",
+      "file": "noxaudit/sarif.py",
+      "line": null,
+      "title": "Fallback hardcoded version mismatches package version",
+      "description": "_get_noxaudit_version() returns the package __version__ when available, but falls back to a hardcoded '0.2.0'. The package __version__ (noxaudit/__init__.py) is '0.1.0'. The fallback value differs from the declared package version and may cause inconsistent tool metadata in SARIF output.",
+      "suggestion": "Avoid hardcoding a fallback that diverges from package versioning; prefer a safe fallback like 'unknown' or derive the version consistently. Keep package version and fallback aligned, or raise a clear warning if not available.",
+      "focus": "docs"
+    },
+    {
+      "id": "1240c956ca49",
+      "severity": "low",
+      "file": "README.md",
+      "line": null,
+      "title": "README references placeholder API keys that look like real secrets",
+      "description": "The README shows examples like `export ANTHROPIC_API_KEY=sk-ant-...` and `export OPENAI_API_KEY=sk-...`. While these are placeholders, they resemble real key formats and may encourage accidental pasting of real keys into sample config files or examples committed to repos.",
+      "suggestion": "Use clearly fake placeholders that cannot be mistaken for real keys (e.g. ANTHROPIC_API_KEY='ANTHROPIC_TEST_KEY') and add an explicit note reminding users not to commit real keys.",
+      "focus": "docs"
+    },
+    {
+      "id": "1c2d7a8e9a38",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Action cache keys and paths use placeholder or constant keys that may not restore correctly",
+      "description": "The composite action uses actions/cache/restore and save steps with fixed keys like `noxaudit-pending-will-not-match` and `noxaudit-retrieved-will-not-match`. These keys are unlikely to collide with previous runs and the `restore-keys` are generic; this reduces the usefulness of caching pending state between workflows.",
+      "suggestion": "Use a deterministic key based on repository + workflow inputs (or use the run id only for save and the same key for restore when appropriate). If cross-run persistence is required, document the intended caching semantics. Avoid placeholder keys that imply 'will-not-match'.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "db1a109eca90",
+      "severity": "high",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "Action runs `pip install` from an unverified remote without offline reproducibility",
+      "description": "The Action installs package code from the upstream repository at runtime (`pip install git+https://...`). Running unverified installs at CI time increases supply chain risk and can lead to non-reproducible builds if the upstream repository changes.",
+      "suggestion": "Pin to a tag or commit hash and/or use a released package artifact (PyPI) with a pinned version. Add signature verification or checksum validation for critical artifacts.",
+      "focus": "security"
+    },
+    {
+      "id": "195fbabc6680",
+      "severity": "medium",
+      "file": "docs/guides/configuration.md",
+      "line": null,
+      "title": "Docs show `provider_rotation` default and examples inconsistent with config dataclass defaults",
+      "description": "Documentation and config examples show a variety of defaults for provider/model (some show `gemini`, others `anthropic`, and model strings vary between 'claude-sonnet-4-5' and 'claude-sonnet-4-5-20250929'). Inconsistent examples make it unclear what the effective default behavior is.",
+      "suggestion": "Audit documentation to present a single authoritative default and make explicit which model string is the canonical default. Prefer deriving displayed defaults dynamically from code where possible to avoid drift.",
+      "focus": "docs"
+    },
+    {
+      "id": "ac473b05591d",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Auto pre-pass economics logic uses config.model rather than per-repo provider/model",
+      "description": "_maybe_prepass() looks up `model_key = config.model` to decide whether tier_threshold is exceeded and to auto-enable pre-pass. However, repositories can override provider/model per-repo using provider_rotation and providers config; using the global config.model may produce incorrect pre-pass decisions for repos that specify a different model/provider.",
+      "suggestion": "Resolve the effective model for the target repo/provider (using config.get_model_for_provider or similar) before applying tier_threshold logic, so pre-pass activation reflects the actual model that will be used for that repo.",
+      "focus": "patterns"
+    },
+    {
+      "id": "73d88d72e4a3",
+      "severity": "medium",
+      "file": "noxaudit/decisions.py",
+      "line": null,
+      "title": "Decision file hashing uses 16-character truncated SHA; collision risk for stable ids",
+      "description": "create_baseline_decisions and _hash_file compute file_hash using hashlib.sha256(...).hexdigest()[:16]. Truncating to 16 hex characters (64 bits) introduces a small collision risk which could cause resurface logic to behave incorrectly when different files/contents produce the same truncated hash.",
+      "suggestion": "Store the full hex digest or a longer prefix (e.g., 32 hex chars / 128 bits) to make accidental collisions negligible. If disk size is a concern, document the tradeoff and consider storing the full digest in compressed form.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "d4f3f2697f6c",
+      "severity": "low",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Response parsing assumes Anthropic message.content[0].text exists",
+      "description": "_parse_response() accesses message.content[0].text directly. If the Anthropic SDK message shape changes or the response contains multiple content parts, this direct indexing could raise an IndexError or miss other content.",
+      "suggestion": "Add defensive code to iterate parts, check for presence, and handle alternate response shapes robustly. Log or raise descriptive errors when expected fields are missing.",
+      "focus": "patterns"
+    },
+    {
+      "id": "c24a7132e367",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": null,
+      "title": "OpenAI provider uses JSON-lines with `method`/`url` and expects specific batch API fields",
+      "description": "submit_batch() builds a JSONL request that relies on a particular OpenAI batch API shape; if the installed openai version or API behavior differs, batch submission may fail in subtle ways (and the cli has limited validation).",
+      "suggestion": "Validate constructed JSONL strictly (and add unit tests that assert the exact structure). Consider documenting minimal supported openai client versions; guard against missing attributes at runtime with clear error messages.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "62d7167b29b8",
+      "severity": "low",
+      "file": "docs/contributing/index.md",
+      "line": null,
+      "title": "Contributor instructions reference `uv pip install -e \"\\.[dev]\"` and mixed `uv` usage",
+      "description": "Several docs show `uv pip install -e \"[dev]\"` and `uv run pytest`. `uv` is a lesser-known tool; mixing `uv` and direct `pip`/`pytest` commands may confuse contributors. There are also variations between CLAUDE.md, CONTRIBUTING.md, and docs pages.",
+      "suggestion": "Standardize contributor instructions to show both the `uv`-based commands and a plain `pip`/`python -m` alternative (e.g., `pip install -e '.[dev]'`) so contributors without `uv` can follow. Keep docs consistent across files.",
+      "focus": "docs"
+    },
+    {
+      "id": "c2fd83d100ca",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "Telegram notifications may leak Markdown content or be impacted by unescaped user-provided text",
+      "description": "send_telegram() sends `message` with parse_mode set to 'Markdown' directly. If message content includes user-provided strings (finding titles, file paths) with Markdown control characters, the message layout can be altered or render incorrectly. This is a minor information-delivery risk but can lead to misleading notifications.",
+      "suggestion": "Escape user-controlled strings before embedding them into Markdown (or use 'MarkdownV2' with careful escaping, or send plain text). Make sure message construction in reporter.format_notification safely handles arbitrary file/finding text.",
+      "focus": "security"
+    },
+    {
+      "id": "dfccd4bf843a",
+      "severity": "low",
+      "file": "docs/roadmap/08-saas-scheduling.md",
+      "line": null,
+      "title": "Roadmap doc references removed OSS features and other internal product terms",
+      "description": "This doc mentions features 'moved to SaaS' and references internal concepts (frames, SaaS scheduling). Presenting these as removed may confuse OSS users; it's acceptable for roadmap but should be clearly labeled as 'SaaS-only'.",
+      "suggestion": "Add a clear banner indicating 'SaaS-only' and remove or link to OSS alternatives so OSS users understand which features remain in CLI vs SaaS.",
+      "focus": "docs"
+    },
+    {
+      "id": "029512bbcf51",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "project.scripts entrypoint declared but CLI packaging may conflict with [tool.hatch.build.targets.wheel] packages setting",
+      "description": "pyproject.toml declares [project.scripts] noxaudit=noxaudit.cli:main and also defines hatch wheel packaging 'packages = [\"noxaudit\"]'. This is normal, but verify packaging settings match the intended published package layout. Inconsistent packaging settings across build configs sometimes cause missing files in wheels.",
+      "suggestion": "Confirm packaging config by building a wheel locally and testing the installed CLI entrypoint. Ensure MANIFEST/pyproject include non-code resources (docs/assets) you need.",
+      "focus": "hygiene"
+    }
+  ]
+}

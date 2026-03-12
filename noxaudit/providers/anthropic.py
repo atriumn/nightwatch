@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 
@@ -194,7 +193,7 @@ Return ONLY the JSON object, no other text."""
         for f in data.get("findings", []):
             focus = f.get("focus") or default_focus
             finding = Finding(
-                id=self._make_finding_id(f),
+                id=self.make_finding_id(f),
                 severity=Severity(f["severity"]),
                 file=f["file"],
                 line=f.get("line"),
@@ -206,13 +205,6 @@ Return ONLY the JSON object, no other text."""
             findings.append(finding)
 
         return findings
-
-    def _make_finding_id(self, raw: dict) -> str:
-        key = f"{raw['file']}:{raw['title']}:{raw.get('line', '')}"
-        # Include focus in hash when present for combined runs
-        if raw.get("focus"):
-            key = f"{raw['focus']}:{key}"
-        return hashlib.sha256(key.encode()).hexdigest()[:12]
 
     def get_last_usage(self) -> dict:
         """Return token usage from the last API call."""

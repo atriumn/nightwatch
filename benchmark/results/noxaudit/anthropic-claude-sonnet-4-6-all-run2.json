@@ -1,0 +1,414 @@
+{
+  "meta": {
+    "repo": "noxaudit",
+    "repo_commit": "1503cbf22b08bbe7e64962221c7075474ed33f57",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "focus": "all",
+    "run": 2,
+    "started_at": "2026-03-11T14:02:54.267094",
+    "completed_at": "2026-03-11T14:07:56.042297",
+    "wall_clock_seconds": 301.78,
+    "error": null
+  },
+  "tokens": {
+    "input": 131134,
+    "output": 6991,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "cost_usd": 0.2491,
+  "findings_count": 39,
+  "findings": [
+    {
+      "id": "750448595024",
+      "severity": "high",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "Shell command injection via subprocess with user-controlled input",
+      "description": "The `_create_issue` function constructs a `gh` CLI command using `finding.title`, `finding.description`, `finding.suggestion`, and `config.labels` \u2014 all of which originate from AI-generated content. These values are passed directly as arguments to `subprocess.run` via a list, which is generally safe, but the content is inserted into `--body` and `--title` without sanitization. A malicious AI response could craft a `finding.title` containing shell metacharacters that, combined with the `gh` CLI parsing, could cause unintended behavior.",
+      "suggestion": "Validate or truncate AI-generated strings before passing to subprocess. At minimum, add length limits and character allowlists for titles and labels.",
+      "focus": "security"
+    },
+    {
+      "id": "035190a596c0",
+      "severity": "high",
+      "file": "noxaudit/mcp/server.py",
+      "line": null,
+      "title": "MCP server executes `run_audit` without authentication or rate limiting",
+      "description": "The `run_audit` MCP tool allows any connected MCP client to trigger a full AI audit, which makes real API calls and incurs real cost. There is no authentication on the MCP server, no rate limiting, and no confirmation step. A compromised or malicious MCP client (e.g., a rogue Cursor plugin) could trigger unlimited expensive API calls.",
+      "suggestion": "Add a configuration option to disable the `run_audit` tool in the MCP server, or require explicit user confirmation before invoking it. Document the risk in the MCP server docs.",
+      "focus": "security"
+    },
+    {
+      "id": "1713a81c7532",
+      "severity": "high",
+      "file": "noxaudit/mcp/server.py",
+      "line": null,
+      "title": "Path traversal risk: MCP `record_decision` writes to hardcoded path without validation",
+      "description": "The `record_decision` tool in the MCP server calls `save_decision(\".noxaudit/decisions.jsonl\", decision)` with a hardcoded path. While the path is not user-controlled here, the `load_latest_findings()` call uses a relative path from cwd. If the MCP server is started from an unexpected working directory, the decisions file could be written to an unintended location.",
+      "suggestion": "Use an absolute path resolved at server startup (e.g., from config), not a hardcoded relative path.",
+      "focus": "security"
+    },
+    {
+      "id": "bea994002692",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "Telegram bot token logged in warning message on failure",
+      "description": "When the Telegram API returns a non-200 status, the full response body is printed: `print(f\"Warning: Telegram API returned {resp.status_code}: {resp.text}\")`. Telegram error responses can include the bot token or partial credentials in the response body in some error scenarios.",
+      "suggestion": "Limit the error output to the status code and a safe truncation of the response body, e.g., `resp.text[:200]`.",
+      "focus": "security"
+    },
+    {
+      "id": "792258784660",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "JSON parsing without error handling can crash on malformed AI responses",
+      "description": "In `_parse_response`, `json.loads(text.strip())` is called without a try/except. If the AI returns malformed JSON (e.e., a rate-limit HTML page or partial response), this will raise an unhandled `json.JSONDecodeError` that propagates to the caller. The same issue exists in `gemini.py` and `openai.py`.",
+      "suggestion": "Wrap JSON parsing in a try/except JSONDecodeError and return an empty findings list with a warning on parse failure.",
+      "focus": "security"
+    },
+    {
+      "id": "02233279cf98",
+      "severity": "medium",
+      "file": "noxaudit/providers/gemini.py",
+      "line": null,
+      "title": "JSON parsing without error handling in `_parse_text` and `_parse_response`",
+      "description": "Both `_parse_text` and `_parse_response` in GeminiProvider call `json.loads(text.strip())` without exception handling. Malformed responses from Gemini will cause an unhandled exception.",
+      "suggestion": "Add try/except around json.loads and return [] with a logged warning on failure.",
+      "focus": "security"
+    },
+    {
+      "id": "b2181ca5d2e7",
+      "severity": "medium",
+      "file": "noxaudit/providers/openai.py",
+      "line": null,
+      "title": "JSON parsing without error handling in `_parse_text`",
+      "description": "`_parse_text` in OpenAIProvider calls `json.loads(text.strip())` without exception handling. Malformed AI responses will cause unhandled exceptions.",
+      "suggestion": "Add try/except around json.loads and return [] with a logged warning on failure.",
+      "focus": "security"
+    },
+    {
+      "id": "0ee89312425a",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "GitHub Action installs noxaudit from a mutable git URL without pinning",
+      "description": "The action installs noxaudit via `pip install git+https://github.com/atriumn/noxaudit.git` without a commit SHA or tag. This means the `@main` branch tip is always installed, which is vulnerable to supply chain attacks if the repository is compromised \u2014 a malicious commit to main would be automatically pulled into all users' CI pipelines.",
+      "suggestion": "Pin to a specific tag or commit SHA: `pip install git+https://github.com/atriumn/noxaudit.git@v0.1.0` or publish to PyPI and install from there.",
+      "focus": "security"
+    },
+    {
+      "id": "64f5dec391ee",
+      "severity": "medium",
+      "file": "action/action.yml",
+      "line": null,
+      "title": "API keys passed as environment variables may be visible in process listing",
+      "description": "The action passes `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID` as environment variables to the shell `run` step. While GitHub Actions masks these in logs, environment variables are visible to any process running in the same job (e.g., via `/proc/PID/environ` on Linux).",
+      "suggestion": "This is an accepted trade-off for GitHub Actions, but document that jobs sharing a runner with untrusted code should not use this action. Consider using GitHub's OIDC for providers that support it.",
+      "focus": "security"
+    },
+    {
+      "id": "70a1bc3a2897",
+      "severity": "medium",
+      "file": "noxaudit/config.py",
+      "line": null,
+      "title": "Path traversal via `os.path.expanduser` on repo path from config",
+      "description": "The `path` field from `noxaudit.yml` is processed with `os.path.expanduser()` but not validated to be within any expected boundary. A malicious config file (e.g., in a shared environment) could point the repo path at sensitive directories like `/etc` or `~/.ssh`.",
+      "suggestion": "Validate that the expanded path is a directory that actually exists and optionally restrict it to be within the project root or a configurable base directory.",
+      "focus": "security"
+    },
+    {
+      "id": "1ef7ef17a5d2",
+      "severity": "medium",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "GitHub issue creation fails open: `_issue_exists` returns False on all errors",
+      "description": "`_issue_exists` catches `subprocess.TimeoutExpired`, `OSError`, and `json.JSONDecodeError` and returns `False` in all cases. This means if the `gh` CLI times out or returns an error, the code assumes no issue exists and creates a duplicate issue.",
+      "suggestion": "Return `True` (assume issue exists) on timeout or error to be safe, or raise the error and let the caller decide whether to skip issue creation.",
+      "focus": "security"
+    },
+    {
+      "id": "5be1acb3b748",
+      "severity": "low",
+      "file": "noxaudit/__init__.py",
+      "line": 3,
+      "title": "Module docstring references old project name 'Nightwatch'",
+      "description": "The module docstring says `\"\"\"Nightwatch: Nightly AI-powered codebase audits.\"\"\"` but the project was renamed to Noxaudit.",
+      "suggestion": "Update to `\"\"\"Noxaudit: Nightly AI-powered codebase audits.\"\"\"`",
+      "focus": "docs"
+    },
+    {
+      "id": "7f74381f28a3",
+      "severity": "low",
+      "file": "noxaudit/reporter.py",
+      "line": null,
+      "title": "Report title references old project name 'Nightwatch'",
+      "description": "`generate_report` produces a title `# Nightwatch Report: {focus}` but the project is named Noxaudit.",
+      "suggestion": "Change to `# Noxaudit Report: {focus}`",
+      "focus": "docs"
+    },
+    {
+      "id": "72a4f592f26f",
+      "severity": "medium",
+      "file": "README.md",
+      "line": null,
+      "title": "README lists 'testing' as a focus area in one table but omits it in another",
+      "description": "The 'Focus Areas' table in README.md lists 6 areas (security, docs, patterns, performance, hygiene, dependencies) and omits 'testing', but the code has 7 focus areas including testing. The 'How It Works' section says 'Default is all 7 focus areas' which contradicts the table.",
+      "suggestion": "Add 'testing' to the Focus Areas table in README.md to match the actual 7 focus areas in the codebase.",
+      "focus": "docs"
+    },
+    {
+      "id": "fdccdfb96207",
+      "severity": "medium",
+      "file": "docs/reference/configuration.md",
+      "line": null,
+      "title": "Configuration reference shows wrong default for `provider_rotation`",
+      "description": "The configuration reference table states `repos[].provider_rotation` defaults to `[gemini]`, but `config.py` `RepoConfig` sets the default to `[\"gemini\"]` while the docs guide and examples use `[anthropic]`. This creates confusion about what the actual default is.",
+      "suggestion": "Ensure the default in the reference table matches the code default in `RepoConfig`.",
+      "focus": "docs"
+    },
+    {
+      "id": "e9729458cf9d",
+      "severity": "medium",
+      "file": "CHANGELOG.md",
+      "line": null,
+      "title": "CHANGELOG version 0.1.0 is dated 2026-02-15 (future date)",
+      "description": "The initial release is dated 2026-02-15, which is a future date relative to typical development timelines. This may indicate a placeholder or error.",
+      "suggestion": "Verify and correct the release date to the actual release date.",
+      "focus": "docs"
+    },
+    {
+      "id": "9de63d8d6b2f",
+      "severity": "medium",
+      "file": "docs/guides/decisions.md",
+      "line": null,
+      "title": "Typo in decisions guide: missing space before 'even'",
+      "description": "The sentence reads: 'the decision is invalidated and the finding resurfaceeven if the decision hasn't expired.' \u2014 missing a space between 'resurface' and 'even'.",
+      "suggestion": "Fix to: 'the decision is invalidated and the finding resurfaces even if the decision hasn't expired.'",
+      "focus": "docs"
+    },
+    {
+      "id": "f4d1fd48ea78",
+      "severity": "low",
+      "file": "docs/reference/providers.md",
+      "line": null,
+      "title": "Provider reference lists `gpt-5.2` output price as $14.00/M but README says $7.00/M",
+      "description": "The providers reference table shows `gpt-5.2` at $14.00/M output, but the README's supported models table shows $7.00/M output for the same model. These are inconsistent.",
+      "suggestion": "Reconcile the two tables to show the same price, verifying against the actual OpenAI pricing.",
+      "focus": "docs"
+    },
+    {
+      "id": "af91dcc454db",
+      "severity": "low",
+      "file": "docs/getting-started/first-audit.md",
+      "line": null,
+      "title": "First audit walkthrough references `claude-sonnet-4-5` but estimate shows `claude-sonnet-4-5-20250929`",
+      "description": "The estimate output in `first-audit.md` shows `claude-sonnet-4-5` as the provider model, but the configuration reference and code default to `claude-sonnet-4-5-20250929`. This minor inconsistency may confuse users.",
+      "suggestion": "Use the full model identifier consistently in documentation examples.",
+      "focus": "docs"
+    },
+    {
+      "id": "aef6184d0b10",
+      "severity": "high",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "GeminiProvider and OpenAIProvider not available in `_retrieve_repo` if import failed",
+      "description": "In `runner.py`, `PROVIDERS` is populated at module load time. `GeminiProvider` and `OpenAIProvider` are imported at the top, but if the optional dependencies are not installed, only `AnthropicProvider` is available. However, the `GeminiProvider` import is unconditional at the top of the file (`from noxaudit.providers.gemini import GeminiProvider`), which will raise an `ImportError` at module import time if `google-genai` is not installed, breaking the entire CLI even for Anthropic-only users.",
+      "suggestion": "Wrap the GeminiProvider import in a try/except ImportError at the top of runner.py, similar to how OpenAIProvider is handled.",
+      "focus": "patterns"
+    },
+    {
+      "id": "9afd3691b47f",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Duplicate code between `_run_repo_sync` and `_submit_repo`/`_retrieve_repo`",
+      "description": "`_run_repo_sync` duplicates significant logic from `_submit_repo` and `_retrieve_repo`: file gathering, provider resolution, prepass check, decision loading, report generation, notification sending, and issue creation. Any change to one path must be mirrored in the other, creating maintenance risk.",
+      "suggestion": "Refactor to extract shared logic into helper functions, or have `run_audit` internally call `submit_audit` + `retrieve_audit` in sequence.",
+      "focus": "patterns"
+    },
+    {
+      "id": "d608791a3b42",
+      "severity": "medium",
+      "file": "noxaudit/providers/anthropic.py",
+      "line": null,
+      "title": "Duplicated `_build_user_message`, `_format_files`, and `_make_finding_id` across all three providers",
+      "description": "The methods `_build_user_message`, `_format_files`, and `_make_finding_id` are implemented identically in `anthropic.py`, `gemini.py`, and `openai.py`. The `FINDING_SCHEMA` dict is also duplicated across all three files.",
+      "suggestion": "Move these shared methods to `BaseProvider` in `providers/base.py` so they are defined once and inherited.",
+      "focus": "patterns"
+    },
+    {
+      "id": "e5d956f344b4",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "`gather_files` in `BaseFocus` is duplicated by `gather_files_combined` top-level function",
+      "description": "`BaseFocus.gather_files` and the module-level `gather_files_combined` share almost identical logic for filtering excluded paths, skipping large files, and reading file content. The runner only uses `gather_files_combined`, making `BaseFocus.gather_files` effectively dead code.",
+      "suggestion": "Remove `BaseFocus.gather_files` or have it delegate to `gather_files_combined([self], repo_path, exclude_patterns)` to eliminate duplication.",
+      "focus": "patterns"
+    },
+    {
+      "id": "deaf9628cccf",
+      "severity": "low",
+      "file": "noxaudit/cli.py",
+      "line": null,
+      "title": "Inconsistent import style: some imports inside functions, others at module level",
+      "description": "Several functions in `cli.py` import modules inside the function body (e.g., `from noxaudit.pricing import ...` inside `estimate`, `from noxaudit.mcp.state import load_latest_findings` inside `_load_findings_for_baseline`). The dominant pattern in the codebase is top-level imports.",
+      "suggestion": "Move function-local imports to the top of the file unless there is a specific reason to defer them (e.g., optional dependency).",
+      "focus": "patterns"
+    },
+    {
+      "id": "4536c5ad36dd",
+      "severity": "medium",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Missing test for `retrieve_audit` with Anthropic provider (only Gemini batch is tested)",
+      "description": "The CLI integration tests cover Gemini's submit/retrieve flow (`TestGeminiBatchCLIIntegration`) but there are no corresponding integration tests for the Anthropic batch submit/retrieve workflow end-to-end through the CLI.",
+      "suggestion": "Add a `TestAnthropicBatchCLIIntegration` class mirroring `TestGeminiBatchCLIIntegration` to ensure the Anthropic path stays wired correctly.",
+      "focus": "testing"
+    },
+    {
+      "id": "044575d8995d",
+      "severity": "medium",
+      "file": "noxaudit/notifications/telegram.py",
+      "line": null,
+      "title": "No tests for Telegram notification module",
+      "description": "`noxaudit/notifications/telegram.py` has zero test coverage. The `send_telegram` function has several branches (missing token, missing chat_id, non-200 response) that are untested.",
+      "suggestion": "Add tests using `httpx` mocking to cover the happy path and all error branches.",
+      "focus": "testing"
+    },
+    {
+      "id": "d653110fba4a",
+      "severity": "medium",
+      "file": "noxaudit/prepass.py",
+      "line": null,
+      "title": "No unit tests for `prepass.py` core logic",
+      "description": "`enrich_files`, `run_prepass`, `build_classification_prompt`, and `_severity_to_tier` in `prepass.py` have no direct unit tests. The prepass is only tested indirectly via CLI integration tests.",
+      "suggestion": "Add unit tests for `enrich_files` (verify FULL/SNIPPET/MAP/SKIP tiers produce correct output), `_severity_to_tier`, and `build_classification_prompt`.",
+      "focus": "testing"
+    },
+    {
+      "id": "4abc6826a840",
+      "severity": "medium",
+      "file": "noxaudit/issues.py",
+      "line": null,
+      "title": "No tests for GitHub issue creation module",
+      "description": "`noxaudit/issues.py` has no test coverage. The `create_issues_for_findings`, `_issue_exists`, and `_create_issue` functions are untested.",
+      "suggestion": "Add tests mocking `subprocess.run` to cover issue creation, deduplication via `_issue_exists`, severity threshold filtering, and error handling.",
+      "focus": "testing"
+    },
+    {
+      "id": "a0176e752e87",
+      "severity": "low",
+      "file": "noxaudit/reporter.py",
+      "line": null,
+      "title": "Missing test for `format_notification` with 'testing' focus area icon",
+      "description": "The `format_notification` function uses a `focus_icons` dict that does not include an entry for 'testing', so it falls back to the generic '\ud83d\udd0d' icon. The test `test_single_focus_icon` only tests 'security'. The missing 'testing' entry is a silent gap.",
+      "suggestion": "Add a test that verifies the 'testing' focus area falls back to the generic icon and that the displayed focus name is correct.",
+      "focus": "testing"
+    },
+    {
+      "id": "9c97520b8b1d",
+      "severity": "high",
+      "file": "noxaudit/runner.py",
+      "line": null,
+      "title": "Unconditional top-level import of GeminiProvider breaks CLI when google-genai not installed",
+      "description": "`runner.py` imports `from noxaudit.providers.gemini import GeminiProvider` unconditionally at the top level. `gemini.py` itself guards with a try/except on `import google.genai`, setting `genai = None` on failure, but `GeminiProvider` class is still defined \u2014 however the module import of runner.py will succeed. The problem is that `GeminiProvider` is then added to `PROVIDERS` dict unconditionally, so users without google-genai who specify `provider: gemini` will get a runtime `ImportError` only when they try to instantiate it, rather than a clear error at startup.",
+      "suggestion": "Wrap the GeminiProvider import in runner.py with a try/except, similar to OpenAIProvider, for consistency and clear error messaging.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "da1cddafb2cb",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "`BaseFocus.gather_files` method is dead code \u2014 never called by the runner",
+      "description": "The `gather_files` instance method on `BaseFocus` is defined but the runner exclusively uses the module-level `gather_files_combined` function. No code in the codebase calls `focus_instance.gather_files(...)`. This is dead code that could mislead contributors.",
+      "suggestion": "Either remove `gather_files` from `BaseFocus` or have `gather_files_combined` delegate to it. If removing, check that no external consumers use the method.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "b850f4bf9b42",
+      "severity": "medium",
+      "file": "docs/roadmap/08-saas-scheduling.md",
+      "line": null,
+      "title": "Roadmap doc references non-existent internal files",
+      "description": "The roadmap doc references `03.5-saas-application.md` and `06-product-quality-focus-areas.md` (e.g., 'See [SaaS Application](03.5-saas-application.md)') but these files are not present in the provided codebase, creating broken internal links.",
+      "suggestion": "Remove or stub out the broken cross-references, or create placeholder files for the referenced documents.",
+      "focus": "hygiene"
+    },
+    {
+      "id": "7b778285c09f",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Duplicate `dev` dependency group defined in both `[project.optional-dependencies]` and `[dependency-groups]`",
+      "description": "`pyproject.toml` defines `[project.optional-dependencies] dev` with `jsonschema`, `pre-commit`, `pytest`, `ruff` AND a separate `[dependency-groups] dev` with only `pytest` and `ruff`. These two groups will conflict and the `[dependency-groups]` section will shadow or be ignored depending on the tool used.",
+      "suggestion": "Remove the `[dependency-groups]` section and consolidate all dev dependencies in `[project.optional-dependencies.dev]`.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "7d34261d4c44",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Inconsistent pytest version pinning between dev extras",
+      "description": "`[project.optional-dependencies] dev` pins `pytest>=8.0` but `[dependency-groups] dev` pins `pytest>=9.0.2`. These are different minimum versions for the same package in the same project.",
+      "suggestion": "Consolidate to a single dev dependency definition with a consistent version requirement.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "4225d99befc4",
+      "severity": "low",
+      "file": "pyproject.toml",
+      "line": null,
+      "title": "Inconsistent ruff version pinning between dev extras",
+      "description": "`[project.optional-dependencies] dev` pins `ruff>=0.8` but `[dependency-groups] dev` pins `ruff>=0.15.1`. The `.pre-commit-config.yaml` uses `v0.15.1`. These are inconsistent.",
+      "suggestion": "Align all ruff version references to `>=0.15.1` and remove the duplicate dependency group.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "0c02904282fb",
+      "severity": "medium",
+      "file": "noxaudit/pricing.py",
+      "line": null,
+      "title": "MODEL_PRICING contains speculative future model names (`gemini-3-flash`, `gpt-5`, `gpt-5.2`, `gpt-5-mini`, `gpt-5-nano`)",
+      "description": "The `MODEL_PRICING` dict and provider reference docs include models like `gemini-3-flash`, `gpt-5`, `gpt-5.2`, `gpt-5-mini`, `gpt-5-nano` that appear to be speculative/aspirational model names not yet released at the time of writing. If these model identifiers don't match actual API model names, users will get silent fallbacks via `resolve_model_key`.",
+      "suggestion": "Clearly mark speculative model entries as aspirational in comments, or remove them until they are publicly available with confirmed model IDs.",
+      "focus": "dependencies"
+    },
+    {
+      "id": "77b1bbacc0c1",
+      "severity": "high",
+      "file": "noxaudit/decisions.py",
+      "line": null,
+      "title": "Unbounded file read in `load_decisions` \u2014 no size limit on decisions.jsonl",
+      "description": "`load_decisions` reads the entire decisions file into memory with `path.read_text().strip().splitlines()`. In a long-running project, the decisions file could grow very large. Similarly, `remove_baseline_decisions` rewrites the entire file atomically, which is not atomic (no temp file + rename pattern) and could corrupt the file on write failure.",
+      "suggestion": "Use a streaming read approach for large files and use atomic writes (write to temp file, then rename) to prevent corruption.",
+      "focus": "performance"
+    },
+    {
+      "id": "9aabb13190e2",
+      "severity": "medium",
+      "file": "noxaudit/cost_ledger.py",
+      "line": null,
+      "title": "CostLedger reads entire ledger file on every `get_last_n_days` call",
+      "description": "`get_last_n_days` calls `read_entries()` which reads and parses the entire JSONL file. Since `status` command calls this every time it's invoked, and the ledger grows unboundedly, this will become slow over time.",
+      "suggestion": "Consider reading the file in reverse (last N entries) for `get_last_n` operations, or adding periodic compaction of old entries.",
+      "focus": "performance"
+    },
+    {
+      "id": "e0d26936ada2",
+      "severity": "medium",
+      "file": "noxaudit/focus/base.py",
+      "line": null,
+      "title": "`gather_files_combined` performs O(n*m) `any(ex in rel ...)` check for each file",
+      "description": "For each file path, `gather_files_combined` checks `any(ex in rel for ex in exclude)`. If `exclude` is large or file paths are long, this is O(files \u00d7 exclude_patterns). For large repos with many exclude patterns, this could be slow.",
+      "suggestion": "Compile exclude patterns into a more efficient check, e.g., split path components and check set membership rather than substring matching on the full path string.",
+      "focus": "performance"
+    }
+  ]
+}
