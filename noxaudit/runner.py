@@ -13,6 +13,8 @@ from noxaudit.focus import FOCUS_AREAS
 from noxaudit.focus.base import build_combined_prompt, gather_files_combined
 from noxaudit.issues import create_issues_for_findings
 from noxaudit.mcp.state import append_findings_history, save_latest_findings
+import math
+
 from noxaudit.models import AuditResult, FileContent
 from noxaudit.notifications.telegram import send_telegram
 from noxaudit.pricing import MODEL_PRICING
@@ -33,6 +35,28 @@ try:
     PROVIDERS["openai"] = OpenAIProvider
 except ImportError:
     pass
+
+
+def _chunk_files(files: list[FileContent], chunk_size: int) -> list[list[FileContent]]:
+    """Split files into chunks of at most chunk_size."""
+    if chunk_size <= 0 or len(files) <= chunk_size:
+        return [files]
+    n_chunks = math.ceil(len(files) / chunk_size)
+    return [files[i * chunk_size : (i + 1) * chunk_size] for i in range(n_chunks)]
+
+
+def _merge_findings(chunks_findings: list[list], seen_ids: set | None = None) -> list:
+    """Merge findings from multiple chunks, deduplicating by ID."""
+    if seen_ids is None:
+        seen_ids = set()
+    merged = []
+    for findings in chunks_findings:
+        for f in findings:
+            if f.id not in seen_ids:
+                seen_ids.add(f.id)
+                merged.append(f)
+    return merged
+
 
 PENDING_BATCH_FILE = ".noxaudit/pending-batch.json"
 LAST_RETRIEVED_FILE = ".noxaudit/last-retrieved.json"
@@ -234,7 +258,13 @@ def _already_retrieved(pending: dict) -> bool:
         return False
     try:
         last = json.loads(path.read_text())
-        pending_ids = sorted(b["batch_id"] for b in pending.get("batches", []))
+        pending_ids = []
+        for b in pending.get("batches", []):
+            if b.get("chunked"):
+                pending_ids.extend(b["batch_ids"])
+            else:
+                pending_ids.append(b["batch_id"])
+        pending_ids = sorted(pending_ids)
         retrieved_ids = sorted(last.get("batch_ids", []))
         return pending_ids == retrieved_ids and len(pending_ids) > 0
     except (json.JSONDecodeError, KeyError):
@@ -245,7 +275,12 @@ def _mark_retrieved(pending: dict) -> None:
     """Record batch IDs as retrieved to prevent re-processing."""
     path = Path(LAST_RETRIEVED_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
-    batch_ids = [b["batch_id"] for b in pending.get("batches", [])]
+    batch_ids = []
+    for b in pending.get("batches", []):
+        if b.get("chunked"):
+            batch_ids.extend(b["batch_ids"])
+        else:
+            batch_ids.append(b["batch_id"])
     path.write_text(
         json.dumps(
             {
@@ -306,24 +341,52 @@ def _submit_repo(config, repo, focus_names, provider_name, dry_run):
             f"{prepass_result.original_count} files retained"
         )
 
-    custom_id = f"{repo.name}-{label}"
-    print(f"[{repo.name}] Submitting {label} batch via {pname} ({config.model})...")
+    chunks = _chunk_files(files, config.chunk_size)
 
-    batch_id = provider.submit_batch(
-        files,
-        prompt,
-        decision_context,
-        custom_id,
-        num_focus_areas=len(focus_names),
-    )
-    print(f"[{repo.name}] Batch submitted: {batch_id}")
+    if len(chunks) > 1:
+        print(
+            f"[{repo.name}] Submitting {len(chunks)} chunked batches "
+            f"({config.chunk_size} files each) via {pname} ({config.model})..."
+        )
+        batch_ids = []
+        for ci, chunk in enumerate(chunks, 1):
+            custom_id = f"{repo.name}-{label}-chunk{ci}"
+            batch_id = provider.submit_batch(
+                chunk,
+                prompt,
+                decision_context,
+                custom_id,
+                num_focus_areas=len(focus_names),
+            )
+            batch_ids.append(batch_id)
+            print(f"[{repo.name}]   Chunk {ci}/{len(chunks)} submitted: {batch_id}")
 
-    return {
-        "repo": repo.name,
-        "batch_id": batch_id,
-        "provider": pname,
-        "file_count": len(files),
-    }
+        return {
+            "repo": repo.name,
+            "batch_ids": batch_ids,
+            "provider": pname,
+            "file_count": len(files),
+            "chunked": True,
+        }
+    else:
+        custom_id = f"{repo.name}-{label}"
+        print(f"[{repo.name}] Submitting {label} batch via {pname} ({config.model})...")
+
+        batch_id = provider.submit_batch(
+            files,
+            prompt,
+            decision_context,
+            custom_id,
+            num_focus_areas=len(focus_names),
+        )
+        print(f"[{repo.name}] Batch submitted: {batch_id}")
+
+        return {
+            "repo": repo.name,
+            "batch_id": batch_id,
+            "provider": pname,
+            "file_count": len(files),
+        }
 
 
 def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format="markdown"):
@@ -333,17 +396,76 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format
     pname = batch_info["provider"]
 
     provider = PROVIDERS[pname](model=config.model)
-    print(f"[{repo_name}] Checking batch {batch_id}...")
 
-    result = provider.retrieve_batch(batch_id, default_focus=default_focus)
+    if batch_info.get("chunked"):
+        # Chunked batch: retrieve each chunk and merge
+        batch_ids = batch_info["batch_ids"]
+        print(f"[{repo_name}] Checking {len(batch_ids)} chunked batches...")
+        all_chunk_findings = []
+        total_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
+        for ci, bid in enumerate(batch_ids, 1):
+            result = provider.retrieve_batch(bid, default_focus=default_focus)
+            if result["status"] != "ended":
+                processing = result["request_counts"]["processing"]
+                print(
+                    f"[{repo_name}]   Chunk {ci}/{len(batch_ids)} still processing ({processing} remaining)"
+                )
+                return None
+            chunk_findings = result.get("findings", [])
+            all_chunk_findings.append(chunk_findings)
+            chunk_usage = provider.get_last_usage()
+            for k in total_usage:
+                total_usage[k] += chunk_usage.get(k, 0)
+            print(f"[{repo_name}]   Chunk {ci}: {len(chunk_findings)} findings")
 
-    if result["status"] != "ended":
-        processing = result["request_counts"]["processing"]
-        print(f"[{repo_name}] Still processing ({processing} remaining)")
-        return None
+        findings = _merge_findings(all_chunk_findings)
+        provider._last_usage = total_usage
+        print(f"[{repo_name}] Total: {len(findings)} findings from {len(batch_ids)} chunks")
+        # Use first batch_id for compatibility
+        batch_id = batch_ids[0]
+    else:
+        batch_id = batch_info["batch_id"]
+        print(f"[{repo_name}] Checking batch {batch_id}...")
 
-    findings = result.get("findings", [])
-    print(f"[{repo_name}] Got {len(findings)} findings")
+        result = provider.retrieve_batch(batch_id, default_focus=default_focus)
+
+        if result["status"] != "ended":
+            processing = result["request_counts"]["processing"]
+            print(f"[{repo_name}] Still processing ({processing} remaining)")
+            return None
+
+        findings = result.get("findings", [])
+        print(f"[{repo_name}] Got {len(findings)} findings")
+
+    # Validate findings against source code
+    if config.validate.enabled and findings:
+        from noxaudit.validate import validate_findings
+
+        repo_config = next((r for r in config.repos if r.name == repo_name), None)
+        original_count = len(findings)
+        findings = validate_findings(
+            findings,
+            config.validate,
+            repo_path=repo_config.path if repo_config else ".",
+            drop_false_positives=config.validate.drop_false_positives,
+            min_confidence=config.validate.min_confidence or None,
+        )
+        if len(findings) < original_count:
+            print(f"[{repo_name}] Validate: {original_count} → {len(findings)} findings")
+
+    # Deduplicate findings for title stability across runs
+    if config.dedup.enabled and findings:
+        from noxaudit.dedup import deduplicate_findings
+
+        original_count = len(findings)
+        findings = deduplicate_findings(findings, config.dedup)
+        if len(findings) < original_count:
+            print(f"[{repo_name}] Dedup: {original_count} → {len(findings)} findings")
 
     # Log cost ledger entry
     file_count = batch_info.get("file_count", 0)
@@ -478,17 +600,75 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
             f"{prepass_result.original_count} files retained"
         )
 
-    print(f"[{repo.name}] Running {label} audit via {pname} (batch API, polling)...")
-
     default_focus = focus_names[0] if len(focus_names) == 1 else None
-    findings = provider.run_audit(
-        files,
-        prompt,
-        decision_context,
-        num_focus_areas=len(focus_names),
-        default_focus=default_focus,
-    )
-    print(f"[{repo.name}] Got {len(findings)} findings")
+    chunks = _chunk_files(files, config.chunk_size)
+
+    if len(chunks) > 1:
+        print(
+            f"[{repo.name}] Chunked into {len(chunks)} batches "
+            f"({config.chunk_size} files each) via {pname} ({config.model})..."
+        )
+        all_chunk_findings = []
+        total_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
+        for ci, chunk in enumerate(chunks, 1):
+            print(f"[{repo.name}]   Chunk {ci}/{len(chunks)} ({len(chunk)} files)...")
+            chunk_findings = provider.run_audit(
+                chunk,
+                prompt,
+                decision_context,
+                num_focus_areas=len(focus_names),
+                default_focus=default_focus,
+            )
+            all_chunk_findings.append(chunk_findings)
+            # Accumulate usage across chunks
+            chunk_usage = provider.get_last_usage()
+            for k in total_usage:
+                total_usage[k] += chunk_usage.get(k, 0)
+            print(f"[{repo.name}]   Chunk {ci}: {len(chunk_findings)} findings")
+
+        findings = _merge_findings(all_chunk_findings)
+        # Store accumulated usage so the ledger picks it up
+        provider._last_usage = total_usage
+        print(f"[{repo.name}] Total: {len(findings)} findings from {len(chunks)} chunks")
+    else:
+        print(f"[{repo.name}] Running {label} audit via {pname} (batch API, polling)...")
+        findings = provider.run_audit(
+            files,
+            prompt,
+            decision_context,
+            num_focus_areas=len(focus_names),
+            default_focus=default_focus,
+        )
+        print(f"[{repo.name}] Got {len(findings)} findings")
+
+    # Validate findings against source code
+    if config.validate.enabled and findings:
+        from noxaudit.validate import validate_findings
+
+        original_count = len(findings)
+        findings = validate_findings(
+            findings,
+            config.validate,
+            repo_path=repo.path,
+            drop_false_positives=config.validate.drop_false_positives,
+            min_confidence=config.validate.min_confidence or None,
+        )
+        if len(findings) < original_count:
+            print(f"[{repo.name}] Validate: {original_count} → {len(findings)} findings")
+
+    # Deduplicate findings for title stability across runs
+    if config.dedup.enabled and findings:
+        from noxaudit.dedup import deduplicate_findings
+
+        original_count = len(findings)
+        findings = deduplicate_findings(findings, config.dedup)
+        if len(findings) < original_count:
+            print(f"[{repo.name}] Dedup: {original_count} → {len(findings)} findings")
 
     # Log cost ledger entry
     usage = provider.get_last_usage()
