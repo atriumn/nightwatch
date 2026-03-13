@@ -154,7 +154,24 @@ Permissive CORS in production config
 
 ### MCP server (Cursor / Claude / Windsurf)
 
-Add to your editor's MCP config, then ask your AI assistant directly:
+Install the MCP extra and add to your project's `.mcp.json`:
+
+```bash
+pip install 'noxaudit[mcp]'
+```
+
+```json
+{
+  "mcpServers": {
+    "noxaudit": {
+      "command": "noxaudit",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+Then ask your AI assistant directly:
 
 ```
 You: What security findings are open in this repo?
