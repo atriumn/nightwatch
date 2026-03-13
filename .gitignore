@@ -13,27 +13,20 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# Noxaudit runtime directories and config
+# Noxaudit runtime state
 .noxaudit/
 noxaudit.yml
-# Legacy nightwatch directories (for backward compatibility during migration)
-.nightwatch/
-nightwatch.yml
-.ralph/
-.ralph-*.log
-.ralph-*.txt
-.ralph-*.sh
-.worktrees/
+
+# Build output
 site/
+
+# Internal / not for OSS
+drafts/
+products/
+subscribers.json
+email-log.json
 
 # Artifacts
 .coverage
 *.bak
 *.local-bak
-
-# Local tool config
-ralph.yml
-
-# cryyer
-subscribers.json
-email-log.json
