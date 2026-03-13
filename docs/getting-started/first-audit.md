@@ -54,6 +54,7 @@ This shows the latest report. You can also find reports in `.noxaudit/reports/my
 Each finding includes:
 
 - **Severity** — high, medium, or low
+- **Confidence** — high, medium, or low (from validation and cross-run history)
 - **Title** — short description of the issue
 - **File** — where the issue was found
 - **Description** — what the AI found and why it matters
@@ -107,7 +108,7 @@ noxaudit status
 ```
 
 ```
-Noxaudit v0.1.0
+Noxaudit v1.1.3
 
 Repos:
   my-app: . (anthropic)

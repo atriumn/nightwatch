@@ -37,6 +37,13 @@ issues:
   labels: [noxaudit]
   assignees: []
 
+# Post-audit validation (sends findings + source code to LLM for verification)
+# validate:
+#   enabled: true
+#   provider: gemini
+#   drop_false_positives: true
+#   min_confidence: medium
+
 # Usage:
 #   noxaudit run                              # all 7 focus areas (default)
 #   noxaudit run --focus security             # single area

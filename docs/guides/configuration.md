@@ -133,6 +133,33 @@ dedup:
   model: ""            # empty = provider default
 ```
 
+## Validate
+
+Post-audit validation sends each finding plus the actual source code to an LLM to check if the finding is real:
+
+```yaml
+validate:
+  enabled: true
+  provider: gemini
+  model: ""              # empty = provider default
+  drop_false_positives: true
+  min_confidence: ""     # "", "low", "medium", or "high"
+```
+
+When enabled, findings classified as `false_positive` are dropped. Set `min_confidence` to filter further — e.g., `min_confidence: medium` drops low-confidence findings too.
+
+## Confidence Scoring
+
+Confidence scoring runs automatically on every audit. It reads `.noxaudit/findings-history.jsonl` and scores each finding by how often it appears across recent runs:
+
+- **high** — appeared in 60%+ of recent runs
+- **medium** — appeared in 30-60% of recent runs
+- **low** — appeared in fewer than 30% of recent runs
+
+History-based confidence upgrades but never downgrades validation confidence. For example, if validation says "medium" but the finding appears in 80% of runs, it becomes "high". But if validation says "high" and history says "low", it stays "high".
+
+No configuration needed — this runs automatically when history is available.
+
 ## Chunking
 
 For repos with many files, chunking splits the audit into smaller batches so each gets thorough coverage:

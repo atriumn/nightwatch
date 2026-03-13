@@ -27,10 +27,13 @@ noxaudit run --focus security,performance # multiple areas (files deduped, ~80% 
 ```
 
 Each run, Noxaudit:
-1. Gathers relevant files from your codebase (deduped across focus areas)
-2. Sends them to an AI provider (Claude, GPT, Gemini) with focused prompts
-3. Filters results against your decision history (so resolved issues don't resurface)
-4. Generates a report and sends you a notification
+1. **Gathers** relevant files from your codebase (with optional pre-pass triage)
+2. **Audits** via an AI provider (Claude, GPT, Gemini) with focused prompts and decision context
+3. **Validates** each finding against source code — classifies confidence, drops false positives
+4. **Deduplicates** findings by normalizing titles to canonical forms for cross-run stability
+5. **Scores confidence** using cross-run frequency analysis from findings history
+6. **Filters** against your decision history so resolved issues don't resurface
+7. **Reports** — generates markdown/SARIF, sends notifications, creates GitHub issues
 
 ## Quick Start
 
@@ -81,10 +84,17 @@ jobs:
 
       - run: uv pip install 'noxaudit[openai]'
 
-      - run: noxaudit run --focus ${{ inputs.focus || 'all' }}
+      - run: noxaudit run --focus ${{ inputs.focus || 'all' }} --format sarif
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: .noxaudit/reports/
 ```
+
+Use `--format sarif` to produce SARIF output compatible with GitHub Code Scanning. The SARIF file is saved alongside the markdown report.
 
 ## What It Looks Like
 
@@ -104,18 +114,21 @@ $ noxaudit report
 
 ### HIGH: Hardcoded API key in test fixture
 **File:** tests/fixtures/config.py:12
+**Confidence:** high
 The string `sk-proj-abc123` is committed to the repo. Even in test fixtures,
 real credentials in source control are a liability.
 **Suggestion:** Replace with `os.environ.get("TEST_API_KEY", "sk-test-placeholder")`.
 
 ### MEDIUM: SQL string interpolation in query builder
 **File:** src/db/queries.py:87
+**Confidence:** medium
 `cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")` is vulnerable
 to SQL injection. Use parameterized queries.
 **Suggestion:** `cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))`
 
 ### MEDIUM: Permissive CORS in production config
 **File:** src/config/cors.py:23
+**Confidence:** low
 `allow_origins=["*"]` in the production config allows any origin.
 **Suggestion:** Restrict to known domains before shipping.
 
@@ -160,18 +173,49 @@ Claude: I found 3 open security findings:
   ...
 ```
 
+## Finding Quality
+
+After the AI provider returns raw findings, Noxaudit runs three post-processing stages to reduce noise and improve consistency:
+
+**Validate** — A second LLM pass reads each finding against the actual source code. Findings are classified as high, medium, low, or false_positive confidence. False positives are dropped by default. Configure with `validate.enabled` and `validate.min_confidence`.
+
+**Deduplicate** — Normalizes finding titles to canonical forms via `.noxaudit/dedup-vocab.json`, so the same issue gets the same title across runs. This stabilizes decision matching and history tracking. On by default (`dedup.enabled`).
+
+**Confidence scoring** — Cross-run frequency analysis using `.noxaudit/findings-history.jsonl`. Findings that recur across multiple runs get higher confidence (60%+ = high, 30%+ = medium, below = low). This upgrades but never downgrades the confidence assigned during validation. Runs automatically.
+
+See [Finding Quality](https://docs.noxaudit.com/finding-quality/) in the docs for details.
+
 ### `.noxaudit/` directory layout
 
 ```
 .noxaudit/
 ├── decisions.jsonl          # Team decisions — commit this
 ├── latest-findings.json     # Latest findings (for MCP server)
+├── findings-history.jsonl   # Cross-run history (for confidence scoring)
+├── dedup-vocab.json         # Canonical title mappings (for dedup)
+├── cost-ledger.jsonl        # Audit cost history (for `noxaudit status`)
 └── reports/
     └── my-app/
         ├── 2025-01-13-security.md
         ├── 2025-01-14-patterns.md
         └── 2025-01-15-docs.md
 ```
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `noxaudit run` | Run an audit (submit + wait for results) |
+| `noxaudit submit` | Submit a batch audit (returns immediately) |
+| `noxaudit retrieve` | Retrieve results from a submitted batch |
+| `noxaudit decide` | Record a decision about a finding |
+| `noxaudit report` | Show the latest report |
+| `noxaudit estimate` | Preview token count and cost estimate — no API keys needed |
+| `noxaudit status` | Show config, last 30 days of audit costs, projected monthly spend |
+| `noxaudit baseline` | Mass-suppress existing findings for adoption (`--focus`, `--severity`, `--undo`, `--list`) |
+| `noxaudit mcp-server` | Start the MCP server for editor integration |
+
+See [CLI Reference](https://docs.noxaudit.com/cli/) for full usage.
 
 ## Configuration
 
@@ -186,8 +230,19 @@ Create a `noxaudit.yml` in your project root. See [noxaudit.yml.example](noxaudi
 | `model` | AI model to use (see [Providers](#providers) section for provider-specific setup) | `claude-sonnet-4-6` |
 | `providers.<name>.model` | Override model for a specific provider (e.g., `providers.openai.model`) | (uses global `model`) |
 | `prepass` | Pre-pass filtering configuration (see [Providers](#providers) section) | disabled |
+| `validate.enabled` | Post-audit LLM validation of findings against source code | `false` |
+| `validate.drop_false_positives` | Automatically remove findings classified as false positives | `true` |
+| `validate.min_confidence` | Minimum confidence to keep (`low`, `medium`, `high`, or empty for no filter) | (none) |
+| `dedup.enabled` | LLM-based deduplication of finding titles | `true` |
+| `budget.max_per_run_usd` | Hard cap on spend per audit run | `2.0` |
+| `budget.alert_threshold_usd` | Warn when a run approaches this cost | `1.5` |
+| `issues.enabled` | Auto-create GitHub issues for findings above severity threshold | `false` |
+| `issues.severity_threshold` | Minimum severity for issue creation (`low`, `medium`, `high`) | `medium` |
+| `chunk_size` | Split large repos into N-file chunks for batch API | `0` (disabled) |
 | `decisions.expiry_days` | Days before a decision expires | `90` |
 | `notifications` | Where to send summaries | (none) |
+
+Full configuration reference at [docs.noxaudit.com/config](https://docs.noxaudit.com/config/).
 
 ## Focus Areas
 
@@ -277,6 +332,22 @@ prepass:
   enabled: true
   threshold_tokens: 600_000  # Auto-enable if codebase exceeds this
   auto: true
+
+# Post-audit validation: verify findings against source code
+validate:
+  enabled: true
+  drop_false_positives: true
+
+# Budget guardrails
+budget:
+  max_per_run_usd: 2.0
+  alert_threshold_usd: 1.5
+
+# Auto-create GitHub issues for high-severity findings
+issues:
+  enabled: true
+  severity_threshold: high
+  labels: [noxaudit, security]
 ```
 
 Each audit will cycle through `provider_rotation`: first run uses Anthropic (with default model), second uses Gemini (with `gemini-2.5-flash`), third uses OpenAI (with `gpt-5-mini`), then repeat. Use `providers.<name>.model` to set provider-specific models that override the global `model` setting. See [Key Options](#key-options) for all configuration.

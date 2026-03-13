@@ -37,6 +37,12 @@ All configuration lives in `noxaudit.yml` in your project root.
 | `dedup.enabled` | bool | `true` | Enable LLM-based finding title normalization |
 | `dedup.provider` | string | `gemini` | Provider for dedup calls: `gemini`, `openai`, or `anthropic` |
 | `dedup.model` | string | `""` | Model for dedup (empty = provider default) |
+| `validate` | mapping | — | Post-audit finding validation settings |
+| `validate.enabled` | bool | `false` | Enable LLM validation of findings against source code |
+| `validate.provider` | string | `gemini` | Provider for validation calls |
+| `validate.model` | string | `""` | Model for validation (empty = provider default) |
+| `validate.drop_false_positives` | bool | `true` | Remove findings classified as false positives |
+| `validate.min_confidence` | string | `""` | Minimum confidence to keep: `""`, `low`, `medium`, or `high` |
 | `chunk_size` | int | `0` | Files per chunk (0 = no chunking). Splits large audits into smaller batches for thorough coverage. |
 
 ## Default Excludes
