@@ -108,4 +108,5 @@ def _finding_from_dict(raw: dict) -> Finding:
         description=raw["description"],
         suggestion=raw.get("suggestion"),
         focus=raw.get("focus"),
+        confidence=raw.get("confidence"),
     )

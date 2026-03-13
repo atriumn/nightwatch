@@ -467,6 +467,14 @@ def _retrieve_repo(config, batch_info, focus_label, default_focus, output_format
         if len(findings) < original_count:
             print(f"[{repo_name}] Dedup: {original_count} → {len(findings)} findings")
 
+    # Score findings by cross-run frequency
+    if findings:
+        from noxaudit.confidence import score_findings
+
+        repo_config = next((r for r in config.repos if r.name == repo_name), None)
+        repo_path = repo_config.path if repo_config else "."
+        findings = score_findings(findings, base_path=repo_path)
+
     # Log cost ledger entry
     file_count = batch_info.get("file_count", 0)
     if file_count > 0:
@@ -669,6 +677,12 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
         findings = deduplicate_findings(findings, config.dedup)
         if len(findings) < original_count:
             print(f"[{repo.name}] Dedup: {original_count} → {len(findings)} findings")
+
+    # Score findings by cross-run frequency
+    if findings:
+        from noxaudit.confidence import score_findings
+
+        findings = score_findings(findings, base_path=repo.path)
 
     # Log cost ledger entry
     usage = provider.get_last_usage()

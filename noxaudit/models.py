@@ -35,6 +35,7 @@ class Finding:
     description: str
     suggestion: str | None = None
     focus: str | None = None
+    confidence: str | None = None  # high, medium, low — from validation or history
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -48,6 +49,8 @@ class Finding:
         }
         if self.focus:
             d["focus"] = self.focus
+        if self.confidence:
+            d["confidence"] = self.confidence
         return d
 
 

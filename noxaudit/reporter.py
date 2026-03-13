@@ -55,6 +55,8 @@ def generate_report(result: AuditResult) -> str:
                 lines.append("")
                 lines.append(f"**Location**: {loc}  ")
                 lines.append(f"**ID**: `{f.id}`")
+                if f.confidence:
+                    lines.append(f"**Confidence**: {f.confidence}")
                 lines.append("")
                 lines.append(f"{f.description}")
                 if f.suggestion:
