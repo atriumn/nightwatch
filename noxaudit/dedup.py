@@ -289,6 +289,12 @@ def deduplicate_findings(
         print(f"[dedup] LLM call failed ({exc}), returning original findings", file=sys.stderr)
         return findings
 
+    # _call_provider may return a list — take first dict
+    if isinstance(response, list):
+        response = response[0] if response and isinstance(response[0], dict) else {}
+    if not isinstance(response, dict):
+        return findings
+
     mappings = response.get("mappings", [])
     if not mappings:
         return findings
