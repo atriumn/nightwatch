@@ -169,6 +169,7 @@ def validate_findings(
             rank = confidence_rank.get(result.confidence, 2)
 
             if rank >= min_rank:
+                finding.confidence = result.confidence
                 validated.append(finding)
             else:
                 dropped += 1
