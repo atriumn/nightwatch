@@ -79,10 +79,11 @@ class BaseFocus(ABC):
 
     def get_prompt_from_file(self, prompt_name: str) -> str:
         """Load a prompt template from the focus_prompts directory."""
-        prompt_file = Path(__file__).parent.parent.parent / "focus_prompts" / f"{prompt_name}.md"
+        prompt_file = Path(__file__).parent.parent / "focus_prompts" / f"{prompt_name}.md"
         if prompt_file.exists():
             return prompt_file.read_text()
-        return self.get_prompt()
+        # No file found — subclass must override get_prompt() directly
+        raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
 
 
 def extract_file_snippets(file: FileContent, max_lines: int = 50) -> FileContent:
