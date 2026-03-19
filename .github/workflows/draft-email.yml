@@ -18,38 +18,61 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
-      - name: Extract version from PR title
+      - name: Extract version and compute since
         id: version
         run: |
           VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Check if draft already exists
+          LATEST_TAG=$(git tag --sort=-v:refname | head -1)
+          if [ -n "$LATEST_TAG" ]; then
+            SINCE=$(git log -1 --format=%aI "$LATEST_TAG")
+          else
+            SINCE=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          fi
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+
+      - name: Parse audience IDs
+        id: audiences
+        run: |
+          AUDIENCES=$(grep -A1 '^\s*- id:' products/noxaudit.yaml | grep 'id:' | awk '{print $3}' | tr '\n' ' ')
+          echo "list=$AUDIENCES" >> "$GITHUB_OUTPUT"
+
+      - name: Check if drafts already exist
         id: check
         run: |
-          DRAFT_PATH="drafts/v${{ steps.version.outputs.value }}.md"
-          if [ -f "$DRAFT_PATH" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          MISSING=false
+          for AUDIENCE in ${{ steps.audiences.outputs.list }}; do
+            if [ ! -f "drafts/v${{ steps.version.outputs.value }}-${AUDIENCE}.md" ]; then
+              MISSING=true
+            fi
+          done
+          echo "needs_draft=$MISSING" >> "$GITHUB_OUTPUT"
 
-      - name: Generate draft
-        if: steps.check.outputs.exists == 'false'
-        uses: atriumn/cryyer/.github/actions/draft-file@v0
-        id: draft
-        with:
-          product: noxaudit
-          version: ${{ steps.version.outputs.value }}
-          llm-api-key: ${{ secrets.GOOGLE_API_KEY }}
-          llm-provider: gemini
-          llm-model: gemini-3-flash-preview
+      - name: Generate drafts per audience
+        if: steps.check.outputs.needs_draft == 'true'
+        run: |
+          for AUDIENCE in ${{ steps.audiences.outputs.list }}; do
+            echo "::group::Drafting for audience: $AUDIENCE"
+            npx @atriumn/cryyer@latest draft-file \
+              --product noxaudit \
+              --version "${{ steps.version.outputs.value }}" \
+              --since "${{ steps.version.outputs.since }}" \
+              --audience "$AUDIENCE" \
+              --output "drafts/v${{ steps.version.outputs.value }}-${AUDIENCE}.md"
+            echo "::endgroup::"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_PROVIDER: gemini
+          LLM_MODEL: gemini-3-flash-preview
+          GEMINI_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
-      - name: Commit draft
-        if: steps.check.outputs.exists == 'false'
+      - name: Commit drafts
+        if: steps.check.outputs.needs_draft == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ${{ steps.draft.outputs.draft-path }}
-          git diff --cached --quiet || git commit -m "chore: draft email for v${{ steps.version.outputs.value }}"
+          git add drafts/
+          git diff --cached --quiet || git commit -m "chore: draft emails for v${{ steps.version.outputs.value }}"
           git push
