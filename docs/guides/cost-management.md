@@ -1,3 +1,7 @@
+---
+title: Cost Management
+---
+
 # Cost Management
 
 Noxaudit is designed to be cheap enough to run frequently. This guide covers estimation, budget controls, cost tracking, and optimization strategies.

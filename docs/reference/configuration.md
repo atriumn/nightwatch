@@ -1,3 +1,7 @@
+---
+title: Configuration Reference
+---
+
 # Configuration Reference
 
 All configuration lives in `noxaudit.yml` in your project root.

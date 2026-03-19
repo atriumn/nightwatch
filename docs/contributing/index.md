@@ -1,3 +1,7 @@
+---
+title: Contributing
+---
+
 # Contributing
 
 Thank you for your interest in contributing to Noxaudit!

@@ -1,3 +1,7 @@
+---
+title: Decision Memory
+---
+
 # Decision Memory
 
 Noxaudit's decision memory system prevents resolved findings from resurfacing in future audits. When you record a decision about a finding, noxaudit remembers it and filters it from future results.

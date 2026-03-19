@@ -1,3 +1,7 @@
+---
+title: Focus Areas
+---
+
 # Focus Areas
 
 Noxaudit audits your codebase through 7 specialized focus areas. Each has its own prompt, file patterns, and severity guidelines.

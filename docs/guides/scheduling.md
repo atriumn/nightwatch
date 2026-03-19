@@ -1,3 +1,7 @@
+---
+title: Usage Patterns
+---
+
 # Usage Patterns
 
 Noxaudit is a simple tool: you tell it what to audit, it audits. The `--focus` flag controls which focus areas to run. With no `--focus`, it defaults to all 7 areas.

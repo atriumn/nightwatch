@@ -1,3 +1,7 @@
+---
+title: Installation
+---
+
 # Installation
 
 ## Requirements
@@ -21,37 +25,25 @@ uv pip install noxaudit
 
 Noxaudit supports multiple AI providers. Install the extras for the providers you want to use:
 
-=== "Anthropic (default)"
+```bash tab="Anthropic (default)"
+pip install noxaudit
+```
 
-    Anthropic is included in the base install — no extra needed.
+```bash tab="OpenAI"
+pip install 'noxaudit[openai]'
+```
 
-    ```bash
-    pip install noxaudit
-    ```
+```bash tab="Google Gemini"
+pip install 'noxaudit[google]'
+```
 
-=== "OpenAI"
+```bash tab="MCP Server"
+pip install 'noxaudit[mcp]'
+```
 
-    ```bash
-    pip install 'noxaudit[openai]'
-    ```
-
-=== "Google Gemini"
-
-    ```bash
-    pip install 'noxaudit[google]'
-    ```
-
-=== "MCP Server"
-
-    ```bash
-    pip install 'noxaudit[mcp]'
-    ```
-
-=== "All providers"
-
-    ```bash
-    pip install 'noxaudit[openai,google,mcp]'
-    ```
+```bash tab="All providers"
+pip install 'noxaudit[openai,google,mcp]'
+```
 
 ## API Key Setup
 
@@ -68,8 +60,8 @@ export OPENAI_API_KEY=sk-...
 export GOOGLE_API_KEY=...
 ```
 
-!!! tip
-    Add your API key to a `.env` file in your project root and load it with `export $(grep -v '^#' .env | xargs)`. Make sure `.env` is in your `.gitignore`.
+> [!TIP]
+> Add your API key to a `.env` file in your project root and load it with `export $(grep -v '^#' .env | xargs)`. Make sure `.env` is in your `.gitignore`.
 
 ## Verify Installation
 
@@ -80,5 +72,5 @@ noxaudit --help
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) — run your first audit in under a minute
-- [Configuration](../guides/configuration.md) — set up `noxaudit.yml` for your project
+- [Quick Start](/docs/getting-started/quickstart) — run your first audit in under a minute
+- [Configuration](/docs/guides/configuration) — set up `noxaudit.yml` for your project

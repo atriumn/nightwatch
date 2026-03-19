@@ -1,3 +1,7 @@
+---
+title: "SARIF & Code Scanning"
+---
+
 # SARIF & Code Scanning
 
 Noxaudit can output findings in [SARIF](https://sarifweb.azurewebsites.net/) (Static Analysis Results Interchange Format), which integrates with GitHub Code Scanning to show findings as security alerts in your repository.

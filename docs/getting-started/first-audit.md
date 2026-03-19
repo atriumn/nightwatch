@@ -1,3 +1,7 @@
+---
+title: Your First Audit
+---
+
 # Your First Audit
 
 This walkthrough takes you through a complete audit cycle: estimating cost, running the audit, interpreting findings, recording decisions, and generating a report.
@@ -28,8 +32,8 @@ noxaudit estimate --focus security
 
 No API key is needed for estimation — it counts files and tokens locally.
 
-!!! tip
-    Use `--focus all` to see the cost for all 7 focus areas combined.
+> [!TIP]
+> Use `--focus all` to see the cost for all 7 focus areas combined.
 
 ## Step 2: Run the Audit
 
@@ -80,8 +84,8 @@ Decisions are stored in `.noxaudit/decisions.jsonl`. A finding won't resurface u
 - The file it's in changes
 - The decision expires (default: 90 days)
 
-!!! tip
-    Commit `.noxaudit/decisions.jsonl` to share decisions across your team.
+> [!TIP]
+> Commit `.noxaudit/decisions.jsonl` to share decisions across your team.
 
 ## Step 5: Baseline Existing Findings
 
