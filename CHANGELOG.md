@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5](https://github.com/atriumn/noxaudit/compare/v1.1.4...v1.1.5) (2026-03-19)
+
+
+### Bug Fixes
+
+* add cryyer product config for release email drafts ([f8c03ca](https://github.com/atriumn/noxaudit/commit/f8c03ca02fd143bf9b5eabe6d73801f6a8046287))
+* keep drafts/ gitignored, use git add -f in workflow ([1f397b0](https://github.com/atriumn/noxaudit/commit/1f397b0db7443e43ffa9c9fc462ac81d918a870a))
+* stop ignoring drafts/ so cryyer can commit email drafts ([e73d8bd](https://github.com/atriumn/noxaudit/commit/e73d8bd28f7670a956de54601ee94cc7954bc009))
+* update draft email workflow to handle multiple audiences ([942e3d7](https://github.com/atriumn/noxaudit/commit/942e3d74e14a70c8ec017c5f043d7e5438c2ac1b))
+
+
+### Miscellaneous
+
+* sync release-please manifest to v1.1.4 ([740132a](https://github.com/atriumn/noxaudit/commit/740132a6c89225ddaf718e5d0553c8dce2d96e85))
+
 ## [1.1.3](https://github.com/atriumn/noxaudit/compare/v1.1.2...v1.1.3) (2026-03-08)
 
 
