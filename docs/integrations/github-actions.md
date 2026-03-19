@@ -1,3 +1,7 @@
+---
+title: GitHub Actions
+---
+
 # GitHub Actions
 
 Noxaudit includes a GitHub Action for automated audits with batch API support.

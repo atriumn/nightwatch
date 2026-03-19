@@ -1,3 +1,7 @@
+---
+title: Notifications
+---
+
 # Notifications
 
 Noxaudit can send audit summaries via Telegram after each run.

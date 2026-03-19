@@ -1,3 +1,7 @@
+---
+title: Provider Reference
+---
+
 # Provider Reference
 
 Noxaudit supports three AI providers. You can rotate between them to get different perspectives on your codebase.
@@ -40,8 +44,8 @@ Anthropic and Gemini 2.5 Pro use tiered pricing — input tokens above 200K are 
 | `claude-sonnet-4-6` | $3.00/M | $6.00/M | $15.00/M | $22.50/M |
 | `gemini-2.5-pro` | $1.25/M | $2.50/M | $10.00/M | $15.00/M |
 
-!!! tip
-    Use `noxaudit estimate` to check if your codebase exceeds the 200K tier threshold. If it does, consider using the [pre-pass](../guides/cost-management.md) to reduce token count, or switch to a Gemini model with a 1M context window.
+> [!TIP]
+> Use `noxaudit estimate` to check if your codebase exceeds the 200K tier threshold. If it does, consider using the [pre-pass](/docs/guides/cost-management) to reduce token count, or switch to a Gemini model with a 1M context window.
 
 ## Cache Token Pricing (Anthropic)
 

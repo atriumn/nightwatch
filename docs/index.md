@@ -1,21 +1,6 @@
 ---
-hide:
-  - navigation
----
-
-<div align="center" markdown>
-
-![Noxaudit](assets/logo.png){ width="160" }
-
-# Noxaudit
-
-**AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.**
-
-[Get Started](getting-started/installation.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/atriumn/noxaudit){ .md-button }
-
-</div>
-
+title: Noxaudit
+description: AI-powered codebase audits with rotating focus areas, multi-provider support, and decision memory.
 ---
 
 ## The Problem
@@ -33,51 +18,14 @@ Each run, Noxaudit:
 3. Filters results against your decision history (so resolved issues don't resurface)
 4. Generates a report and sends you a notification
 
----
-
 ## Key Features
 
-<div class="grid cards" markdown>
-
--   :material-shield-check:{ .lg .middle } **7 Focus Areas**
-
-    ---
-
-    Security, patterns, docs, hygiene, performance, dependencies, and testing — each with specialized prompts.
-
--   :material-brain:{ .lg .middle } **Decision Memory**
-
-    ---
-
-    Record decisions about findings so they don't resurface. Decisions expire after 90 days or when the file changes.
-
--   :material-swap-horizontal:{ .lg .middle } **Multi-Provider**
-
-    ---
-
-    Rotate between Anthropic Claude, OpenAI GPT, and Google Gemini. Different models catch different things.
-
--   :material-currency-usd:{ .lg .middle } **Cost Controls**
-
-    ---
-
-    Budget limits, cost estimation before running, batch API discounts, and pre-pass token optimization.
-
--   :material-github:{ .lg .middle } **GitHub Integration**
-
-    ---
-
-    GitHub Actions workflow, automatic issue creation, and SARIF upload for Code Scanning alerts.
-
--   :material-bell-outline:{ .lg .middle } **Notifications**
-
-    ---
-
-    Get summaries via Telegram with severity counts and finding details.
-
-</div>
-
----
+- **7 Focus Areas** — Security, patterns, docs, hygiene, performance, dependencies, and testing — each with specialized prompts.
+- **Decision Memory** — Record decisions about findings so they don't resurface. Decisions expire after 90 days or when the file changes.
+- **Multi-Provider** — Rotate between Anthropic Claude, OpenAI GPT, and Google Gemini. Different models catch different things.
+- **Cost Controls** — Budget limits, cost estimation before running, batch API discounts, and pre-pass token optimization.
+- **GitHub Integration** — GitHub Actions workflow, automatic issue creation, and SARIF upload for Code Scanning alerts.
+- **Notifications** — Get summaries via Telegram with severity counts and finding details.
 
 ## Quick Install
 
@@ -90,9 +38,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 noxaudit run --focus security
 ```
 
-See the full [Installation Guide](getting-started/installation.md) and [Quick Start](getting-started/quickstart.md).
-
----
+See the full [Installation Guide](/docs/getting-started/installation) and [Quick Start](/docs/getting-started/quickstart).
 
 ## Example Output
 
@@ -109,8 +55,6 @@ See the full [Installation Guide](getting-started/installation.md) and [Quick St
 
 ✅ 5 previous findings still resolved
 ```
-
----
 
 ## License
 

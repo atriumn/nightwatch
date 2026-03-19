@@ -1,3 +1,7 @@
+---
+title: CLI Reference
+---
+
 # CLI Reference
 
 Noxaudit provides 9 commands. All commands accept a `--config` / `-c` flag to specify the path to `noxaudit.yml` (defaults to the current directory).

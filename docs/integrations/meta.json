@@ -1,0 +1,9 @@
+{
+  "title": "Integrations",
+  "pages": [
+    "github-actions",
+    "github-issues",
+    "sarif",
+    "mcp-server"
+  ]
+}

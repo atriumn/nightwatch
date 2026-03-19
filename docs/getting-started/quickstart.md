@@ -1,3 +1,7 @@
+---
+title: Quick Start
+---
+
 # Quick Start
 
 Get your first audit running in under a minute.

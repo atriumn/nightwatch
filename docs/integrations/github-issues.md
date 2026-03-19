@@ -1,3 +1,7 @@
+---
+title: GitHub Issues
+---
+
 # GitHub Issues
 
 Noxaudit can automatically create GitHub issues for audit findings, making it easy to track and assign remediation work.

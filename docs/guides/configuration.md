@@ -1,3 +1,7 @@
+---
+title: Configuration
+---
+
 # Configuration
 
 Noxaudit is configured through a `noxaudit.yml` file in your project root.

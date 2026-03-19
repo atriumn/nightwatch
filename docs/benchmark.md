@@ -1,3 +1,7 @@
+---
+title: Benchmark Results
+---
+
 # Benchmark Results
 
 We benchmarked all 10 supported models to understand which ones actually find real issues vs. generate noise. This data directly informs our [recommended model tiers](reference/providers.md#recommended-setup).
@@ -63,8 +67,8 @@ Based on quality-adjusted cost:
 | **Deep dive** | `gpt-5.4` | $0.26 | 84 findings total, beats Sonnet quality at 68% the cost |
 | **Premium** | `claude-opus-4-6` | $0.65 | Most findings overall, best for maximum depth |
 
-!!! note
-    Our initial assumption was "Gemini Flash for daily audits" — the benchmark disproved this. gpt-5-mini is cheaper AND finds more real issues.
+> [!NOTE]
+> Our initial assumption was "Gemini Flash for daily audits" — the benchmark disproved this. gpt-5-mini is cheaper AND finds more real issues.
 
 ## Dropped Models
 

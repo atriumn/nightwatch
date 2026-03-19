@@ -1,3 +1,7 @@
+---
+title: MCP Server
+---
+
 # MCP Server
 
 Noxaudit includes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes audit data to AI coding tools like Claude Code, Cursor, and Windsurf.
