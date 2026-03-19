@@ -1,0 +1,18 @@
+id: noxaudit
+name: Noxaudit
+repo: "atriumn/noxaudit"
+audiences:
+  - id: technical
+    voice: |
+      Developer-focused. Reference PRs, CLI changes, and breaking changes directly.
+      Assume readers use noxaudit to audit their own codebases.
+      This is a release update, not a weekly newsletter. Write about what shipped.
+      Use ## or ### for headings, never #### or deeper. Use - for list items, not *.
+    emailSubjectTemplate: "Noxaudit v{{version}} — Developer Notes"
+  - id: general
+    voice: |
+      Approachable and non-technical. Focus on what's improved and why it matters.
+      Skip implementation details. Keep it short and friendly.
+      This is a release update, not a weekly newsletter. Write about what shipped.
+      Use ## or ### for headings, never #### or deeper. Use - for list items, not *.
+    emailSubjectTemplate: "Noxaudit v{{version}} — What's New"
