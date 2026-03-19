@@ -18,14 +18,31 @@ jobs:
           VERSION="${VERSION#v}"
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Send emails
-        uses: atriumn/cryyer/.github/actions/send-file@v0
-        with:
-          product: noxaudit
-          draft-path: drafts/v${{ steps.version.outputs.value }}.md
-          from-email: ${{ secrets.FROM_EMAIL }}
-          email-provider: resend
-          subscriber-store: gist
-          email-api-key: ${{ secrets.RESEND_API_KEY }}
-          github-gist-id: ${{ secrets.SUBSCRIBER_GIST_ID }}
-          github-token: ${{ secrets.SUBSCRIBER_GIST_TOKEN }}
+      - name: Parse audience IDs
+        id: audiences
+        run: |
+          AUDIENCES=$(grep -A1 '^\s*- id:' products/noxaudit.yaml | grep 'id:' | awk '{print $3}' | tr '\n' ' ')
+          echo "list=$AUDIENCES" >> "$GITHUB_OUTPUT"
+
+      - name: Send emails per audience
+        run: |
+          for AUDIENCE in ${{ steps.audiences.outputs.list }}; do
+            DRAFT="drafts/v${{ steps.version.outputs.value }}-${AUDIENCE}.md"
+            if [ ! -f "$DRAFT" ]; then
+              echo "Draft not found: $DRAFT — skipping"
+              continue
+            fi
+            echo "::group::Sending for audience: $AUDIENCE"
+            npx @atriumn/cryyer@latest send-file \
+              "$DRAFT" \
+              --product noxaudit \
+              --audience "$AUDIENCE"
+            echo "::endgroup::"
+          done
+        env:
+          EMAIL_PROVIDER: resend
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          SUBSCRIBER_STORE: gist
+          GITHUB_GIST_ID: ${{ secrets.SUBSCRIBER_GIST_ID }}
+          GITHUB_TOKEN: ${{ secrets.SUBSCRIBER_GIST_TOKEN }}
