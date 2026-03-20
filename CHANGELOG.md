@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6](https://github.com/atriumn/noxaudit/compare/v1.1.5...v1.1.6) (2026-03-20)
+
+
+### Bug Fixes
+
+* update send-email workflow for per-audience draft files ([5a23681](https://github.com/atriumn/noxaudit/commit/5a23681422e4533cab5621cd1be7f78683e98755))
+
+
+### Documentation
+
+* set up Fumadocs to replace MkDocs Material ([#128](https://github.com/atriumn/noxaudit/issues/128)) ([b6dc3e7](https://github.com/atriumn/noxaudit/commit/b6dc3e74987025204021f385cbc77ea8d54a8c93))
+
 ## [1.1.5](https://github.com/atriumn/noxaudit/compare/v1.1.4...v1.1.5) (2026-03-19)
 
 
