@@ -10,6 +10,10 @@ Report ALL findings you discover. Do not self-filter or limit your output.
 
 Work through each category systematically. For each category, check every file.
 
+### No Tests At All
+- If the repository has NO test files (no `*.test.*`, `*.spec.*`, `test_*.py`, or `tests/` directory), this is a **high severity** finding. Flag it immediately.
+- If the repository has a test framework configured (jest.config, vitest.config, pytest.ini) but zero actual test files, flag this as **high severity** — the setup exists but no tests were written.
+
 ### Missing Coverage — Critical Paths
 - Authentication/authorization logic with no tests
 - Payment/billing code with no tests
