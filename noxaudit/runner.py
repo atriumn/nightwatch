@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -15,7 +17,7 @@ from noxaudit.issues import create_issues_for_findings
 from noxaudit.mcp.state import append_findings_history, save_latest_findings
 import math
 
-from noxaudit.models import AuditResult, FileContent
+from noxaudit.models import AuditResult, FileContent, Finding, Severity
 from noxaudit.notifications.telegram import send_telegram
 from noxaudit.pricing import MODEL_PRICING
 from noxaudit.providers.anthropic import AnthropicProvider
@@ -654,6 +656,9 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
         )
         print(f"[{repo.name}] Got {len(findings)} findings")
 
+    # Inject synthetic findings for structural issues the model can't detect
+    findings = _inject_structural_findings(findings, files, focus_names, repo.name)
+
     # Validate findings against source code
     if config.validate.enabled and findings:
         from noxaudit.validate import validate_findings
@@ -747,3 +752,55 @@ def _run_repo_sync(config, repo, focus_names, provider_name, dry_run, output_for
     create_issues_for_findings(result, config.issues)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Structural findings — issues detectable from file listing alone
+# ---------------------------------------------------------------------------
+
+_TEST_PATTERNS = [
+    re.compile(r"\.test\.\w+$"),
+    re.compile(r"\.spec\.\w+$"),
+    re.compile(r"(^|/)__tests__/"),
+    re.compile(r"(^|/)test_[^/]+\.py$"),
+    re.compile(r"(^|/)tests/"),
+]
+
+
+def _has_test_files(files: list) -> bool:
+    """Check if any of the gathered files look like test files."""
+    for f in files:
+        path = f.path if hasattr(f, "path") else str(f)
+        if any(p.search(path) for p in _TEST_PATTERNS):
+            return True
+    return False
+
+
+def _inject_structural_findings(
+    findings: list,
+    files: list,
+    focus_names: list[str],
+    repo_name: str,
+) -> list:
+    """Add synthetic findings for structural issues the model missed."""
+    if "testing" in focus_names and not _has_test_files(files):
+        finding_id = hashlib.sha256(f"testing:{repo_name}:no-test-files".encode()).hexdigest()[:12]
+        no_tests = Finding(
+            id=finding_id,
+            severity=Severity.HIGH,
+            file="(repository)",
+            line=None,
+            title="No test files found in repository",
+            description=(
+                "This repository has no test files (no *.test.*, *.spec.*, "
+                "test_*.py, or tests/ directory). Code without tests is a "
+                "liability — bugs ship undetected, refactors break silently, "
+                "and new contributors have no safety net."
+            ),
+            suggestion="Add a test framework and write tests for critical paths.",
+            focus="testing",
+        )
+        findings = [no_tests] + findings
+        print(f"[{repo_name}] Injected: no test files found")
+
+    return findings
