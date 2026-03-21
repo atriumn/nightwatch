@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7](https://github.com/atriumn/noxaudit/compare/v1.1.6...v1.1.7) (2026-03-21)
+
+
+### Bug Fixes
+
+* inject synthetic finding when repo has no test files ([17cdd99](https://github.com/atriumn/noxaudit/commit/17cdd99b88d0e5a0e1ba8f6647b3f53ad17e87e3))
+
 ## [1.1.6](https://github.com/atriumn/noxaudit/compare/v1.1.5...v1.1.6) (2026-03-20)
 
 
