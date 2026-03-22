@@ -33,6 +33,7 @@ class SecurityFocus(BaseFocus):
             "**/*.go",
             "**/*.rs",
             "**/*.rb",
+            "**/*.dart",
             # Git and CI
             "**/.gitignore",
             "**/.github/**/*.yml",

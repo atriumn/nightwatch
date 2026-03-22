@@ -30,6 +30,7 @@ class DocsFocus(BaseFocus):
             "**/*.jsx",
             "**/*.go",
             "**/*.rs",
+            "**/*.dart",
         ]
 
     def get_prompt(self) -> str:

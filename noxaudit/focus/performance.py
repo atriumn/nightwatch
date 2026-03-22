@@ -19,6 +19,7 @@ class PerformanceFocus(BaseFocus):
             "**/*.jsx",
             "**/*.go",
             "**/*.rs",
+            "**/*.dart",
             # Config that affects performance
             "**/*.yml",
             "**/*.yaml",

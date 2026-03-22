@@ -20,6 +20,7 @@ class PatternsFocus(BaseFocus):
             "**/*.go",
             "**/*.rs",
             "**/*.rb",
+            "**/*.dart",
             # Config that defines patterns
             "**/*.yml",
             "**/*.yaml",

@@ -17,6 +17,8 @@ class TestingFocus(BaseFocus):
             "**/__tests__/**",
             "**/test_*.py",
             "**/tests/**",
+            "**/test/**",
+            "**/*_test.dart",
             # Source code (to identify untested paths)
             "**/*.py",
             "**/*.ts",
@@ -25,6 +27,7 @@ class TestingFocus(BaseFocus):
             "**/*.jsx",
             "**/*.go",
             "**/*.rs",
+            "**/*.dart",
             # Test config
             "**/jest.config.*",
             "**/vitest.config.*",
