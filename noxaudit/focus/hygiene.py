@@ -19,6 +19,7 @@ class HygieneFocus(BaseFocus):
             "**/*.jsx",
             "**/*.go",
             "**/*.rs",
+            "**/*.dart",
             "**/*.yml",
             "**/*.yaml",
             "**/*.toml",

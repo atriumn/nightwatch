@@ -31,12 +31,16 @@ class DependenciesFocus(BaseFocus):
             # Ruby
             "**/Gemfile",
             "**/Gemfile.lock",
+            # Dart/Flutter
+            "**/pubspec.yaml",
+            "**/pubspec.lock",
             # Source (to check for unused imports)
             "**/*.py",
             "**/*.ts",
             "**/*.tsx",
             "**/*.js",
             "**/*.jsx",
+            "**/*.dart",
         ]
 
     def get_prompt(self) -> str:
