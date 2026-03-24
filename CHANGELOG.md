@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/atriumn/noxaudit/compare/v1.1.10...v1.2.0) (2026-03-24)
+
+
+### Features
+
+* use sync API for pre-pass instead of batch API ([#139](https://github.com/atriumn/noxaudit/issues/139)) ([d6c4b4e](https://github.com/atriumn/noxaudit/commit/d6c4b4e204ef88aa764a2b236cb7e05515bff51b))
+
 ## [1.1.10](https://github.com/atriumn/noxaudit/compare/v1.1.9...v1.1.10) (2026-03-24)
 
 
