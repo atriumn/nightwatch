@@ -100,7 +100,7 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         input_per_million_high=None,
         output_per_million_high=None,
         batch_discount=0.50,
-        context_window=400_000,
+        context_window=272_000,
     ),
     "o4-mini": ModelPricing(
         input_per_million=1.10,
