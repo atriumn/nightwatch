@@ -200,6 +200,48 @@ class OpenAIProvider(BaseProvider):
         print(f"  Batch submitted: {batch_id}")
         return self._poll_batch(batch_id, default_focus=default_focus)
 
+    def run_sync(
+        self,
+        files: list[FileContent],
+        system_prompt: str,
+        decision_context: str,
+        num_focus_areas: int = 1,
+        default_focus: str | None = None,
+    ) -> list[Finding]:
+        """Direct chat completion — no batch queue."""
+        user_message = self._build_user_message(files, decision_context)
+        max_tokens = 4096 * num_focus_areas
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            max_completion_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "audit_findings",
+                    "schema": FINDING_SCHEMA,
+                },
+            },
+        )
+
+        usage = response.usage
+        if usage:
+            details = getattr(usage, "prompt_tokens_details", None) or {}
+            cached = getattr(details, "cached_tokens", 0) if details else 0
+            self._last_usage = {
+                "input_tokens": usage.prompt_tokens or 0,
+                "output_tokens": usage.completion_tokens or 0,
+                "cache_read_tokens": cached,
+                "cache_write_tokens": 0,
+            }
+
+        content = response.choices[0].message.content or ""
+        return self._parse_text(content, default_focus=default_focus)
+
     def _build_user_message(self, files: list[FileContent], decision_context: str) -> str:
         file_contents = self._format_files(files)
         return f"""Review the following codebase files and report any findings.

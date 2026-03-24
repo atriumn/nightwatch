@@ -97,8 +97,9 @@ class TestPrepassCLIIntegration:
             )
         ]
         provider_cls, provider_instance = _make_mock_provider(sample_findings)
-        # First call = prepass classification, second call = main audit
-        provider_instance.run_audit.side_effect = [prepass_findings, sample_findings]
+        # run_sync = prepass classification, run_audit = main audit
+        provider_instance.run_sync.return_value = prepass_findings
+        provider_instance.run_audit.return_value = sample_findings
 
         runner = CliRunner()
         with (
@@ -113,8 +114,9 @@ class TestPrepassCLIIntegration:
             )
 
         assert result.exit_code == 0, result.output
-        # Pre-pass was triggered — run_audit called twice (pre-pass + main audit)
-        assert provider_instance.run_audit.call_count == 2
+        # Pre-pass used run_sync, main audit used run_audit
+        assert provider_instance.run_sync.call_count == 1
+        assert provider_instance.run_audit.call_count == 1
 
     def test_prepass_filters_files_before_main_audit(self, tmp_path):
         """Pre-pass result is used to filter files — main audit gets fewer files."""
@@ -146,7 +148,8 @@ class TestPrepassCLIIntegration:
         main_findings: list[Finding] = []
 
         provider_cls, provider_instance = _make_mock_provider([])
-        provider_instance.run_audit.side_effect = [prepass_findings, main_findings]
+        provider_instance.run_sync.return_value = prepass_findings
+        provider_instance.run_audit.return_value = main_findings
 
         runner = CliRunner()
         with (
@@ -162,7 +165,7 @@ class TestPrepassCLIIntegration:
 
         assert result.exit_code == 0, result.output
         # Main audit call should only receive app.py (unused.py filtered out)
-        main_audit_call = provider_instance.run_audit.call_args_list[1]
+        main_audit_call = provider_instance.run_audit.call_args_list[0]
         files_sent = main_audit_call[0][0]  # first positional arg = files
         file_paths = [f.path for f in files_sent]
         assert "app.py" in file_paths
