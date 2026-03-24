@@ -141,6 +141,35 @@ class AnthropicProvider(BaseProvider):
         print(f"  Batch submitted: {batch_id}")
         return self._poll_batch(batch_id, default_focus=default_focus)
 
+    def run_sync(
+        self,
+        files: list[FileContent],
+        system_prompt: str,
+        decision_context: str,
+        num_focus_areas: int = 1,
+        default_focus: str | None = None,
+    ) -> list[Finding]:
+        """Direct message API — no batch queue."""
+        user_message = self._build_user_message(files, decision_context)
+        max_tokens = 4096 * num_focus_areas
+
+        message = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+
+        usage = message.usage
+        self._last_usage = {
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "cache_read_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+            "cache_write_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        }
+
+        return self._parse_response(message, default_focus=default_focus)
+
     def _build_user_message(self, files: list[FileContent], decision_context: str) -> str:
         file_contents = self._format_files(files)
         return f"""Review the following codebase files and report any findings.

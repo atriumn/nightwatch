@@ -26,6 +26,26 @@ class BaseProvider(ABC):
         """Run an audit and return findings."""
         ...
 
+    def run_sync(
+        self,
+        files: list[FileContent],
+        system_prompt: str,
+        decision_context: str,
+        num_focus_areas: int = 1,
+        default_focus: str | None = None,
+    ) -> list[Finding]:
+        """Run using the standard (non-batch) API for low-latency results.
+
+        Falls back to run_audit if not overridden.
+        """
+        return self.run_audit(
+            files,
+            system_prompt,
+            decision_context,
+            num_focus_areas=num_focus_areas,
+            default_focus=default_focus,
+        )
+
     def get_last_usage(self) -> dict:
         """Return token usage from the last API call.
 

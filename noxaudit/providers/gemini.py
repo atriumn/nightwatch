@@ -189,6 +189,39 @@ class GeminiProvider(BaseProvider):
         print(f"  Batch submitted: {batch_id}")
         return self._poll_batch(batch_id, default_focus=default_focus)
 
+    def run_sync(
+        self,
+        files: list[FileContent],
+        system_prompt: str,
+        decision_context: str,
+        num_focus_areas: int = 1,
+        default_focus: str | None = None,
+    ) -> list[Finding]:
+        """Direct generate_content call — no batch queue."""
+        user_message = self._build_user_message(files, decision_context)
+
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=user_message,
+            config={
+                "system_instruction": system_prompt,
+                "response_mime_type": "application/json",
+                "response_schema": FINDING_SCHEMA,
+            },
+        )
+
+        usage = getattr(response, "usage_metadata", None)
+        if usage:
+            self._last_usage = {
+                "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+                "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 0,
+            }
+
+        text = response.text or ""
+        return self._parse_text(text, default_focus=default_focus)
+
     def _build_user_message(self, files: list[FileContent], decision_context: str) -> str:
         file_contents = self._format_files(files)
         return f"""Review the following codebase files and report any findings.

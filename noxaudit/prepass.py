@@ -102,8 +102,8 @@ def run_prepass(
     print(f"  Pre-pass: classifying {len(files)} files...")
     prompt = build_classification_prompt(focus_names)
 
-    # Run classification: findings encode the tier via severity
-    classification_findings = provider.run_audit(files, prompt, "")
+    # Run classification via sync API (not batch) for low-latency results
+    classification_findings = provider.run_sync(files, prompt, "")
 
     # Build a tier map from the classification findings
     tier_map: dict[str, ContentTier] = {}
