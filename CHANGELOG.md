@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.9](https://github.com/atriumn/noxaudit/compare/v1.1.8...v1.1.9) (2026-03-24)
+
+
+### Bug Fixes
+
+* add retrieve_batch to BaseProvider interface ([#135](https://github.com/atriumn/noxaudit/issues/135)) ([b12d7fe](https://github.com/atriumn/noxaudit/commit/b12d7fe88df2e872be37d53b07526da8d0eea099))
+
 ## [1.1.8](https://github.com/atriumn/noxaudit/compare/v1.1.7...v1.1.8) (2026-03-22)
 
 
