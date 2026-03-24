@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from noxaudit.models import ContentTier, FileClassification, FileContent, PrepassResult
+from noxaudit.pricing import MODEL_PRICING
 
 # Classification prompt: asks the provider to classify files into content tiers.
 # We reuse the existing run_audit() interface — severity encodes the tier:
@@ -30,6 +31,27 @@ or configs completely unrelated to {focus_names}), omit them — output no findi
 
 When in doubt, INCLUDE the file (at least as "low"/file-map). The goal is to filter
 only obviously irrelevant files to reduce token costs, not to perform a full audit."""
+
+
+def _chunk_by_tokens(files: list[FileContent], max_tokens: int) -> list[list[FileContent]]:
+    """Split files into chunks that each fit within max_tokens."""
+    chunks: list[list[FileContent]] = []
+    current_chunk: list[FileContent] = []
+    current_tokens = 0
+
+    for f in files:
+        file_tokens = len(f.content) // 4  # ~4 chars per token
+        if current_chunk and current_tokens + file_tokens > max_tokens:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_tokens = 0
+        current_chunk.append(f)
+        current_tokens += file_tokens
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
 
 
 def build_classification_prompt(focus_names: list[str]) -> str:
@@ -102,8 +124,16 @@ def run_prepass(
     print(f"  Pre-pass: classifying {len(files)} files...")
     prompt = build_classification_prompt(focus_names)
 
-    # Run classification via sync API (not batch) for low-latency results
-    classification_findings = provider.run_sync(files, prompt, "")
+    # Chunk files to fit within the model's context window for sync API calls
+    pricing = MODEL_PRICING.get(getattr(provider, "model", ""))
+    max_tokens = (pricing.context_window if pricing else 200_000) * 3 // 4  # 75% headroom
+    chunks = _chunk_by_tokens(files, max_tokens)
+
+    classification_findings = []
+    for i, chunk in enumerate(chunks):
+        if len(chunks) > 1:
+            print(f"  Pre-pass chunk {i + 1}/{len(chunks)} ({len(chunk)} files)...")
+        classification_findings.extend(provider.run_sync(chunk, prompt, ""))
 
     # Build a tier map from the classification findings
     tier_map: dict[str, ContentTier] = {}
