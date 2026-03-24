@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1](https://github.com/atriumn/noxaudit/compare/v1.2.0...v1.2.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* chunk pre-pass sync calls to fit model context window ([#141](https://github.com/atriumn/noxaudit/issues/141)) ([1551dc5](https://github.com/atriumn/noxaudit/commit/1551dc5b3ca6071534e6f3540223df5f1b36d0d9))
+
 ## [1.2.0](https://github.com/atriumn/noxaudit/compare/v1.1.10...v1.2.0) (2026-03-24)
 
 
