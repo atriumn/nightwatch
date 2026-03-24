@@ -38,6 +38,14 @@ class BaseProvider(ABC):
             "cache_write_tokens": 0,
         }
 
+    def retrieve_batch(
+        self,
+        batch_id: str,
+        default_focus: str | None = None,
+    ) -> dict:
+        """Retrieve batch status and results. Must be implemented by subclasses that use batch APIs."""
+        raise NotImplementedError(f"{self.name} does not implement retrieve_batch")
+
     def _poll_batch(
         self,
         batch_id: str,
