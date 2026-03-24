@@ -126,7 +126,9 @@ def run_prepass(
 
     # Chunk files to fit within the model's context window for sync API calls
     pricing = MODEL_PRICING.get(getattr(provider, "model", ""))
-    max_tokens = (pricing.context_window if pricing else 200_000) * 3 // 4  # 75% headroom
+    max_tokens = (
+        pricing.context_window if pricing else 200_000
+    ) // 2  # 50% headroom for prompt/formatting overhead
     chunks = _chunk_by_tokens(files, max_tokens)
 
     classification_findings = []
