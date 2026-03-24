@@ -124,9 +124,18 @@ def _maybe_prepass(
     model_key = config.model
     pricing = MODEL_PRICING.get(model_key)
 
-    if pricing and pricing.tier_threshold is not None:
-        if token_estimate > pricing.tier_threshold:
-            # Auto-enable pre-pass with explanatory message
+    if pricing:
+        # Auto-enable when tokens exceed the model's context window
+        if token_estimate > pricing.context_window:
+            msg = (
+                f"  [{repo_name}] Auto-enabling pre-pass: {token_estimate // 1000}K tokens "
+                f"exceeds {config.model} context window ({pricing.context_window // 1000}K).\n"
+                f"           To disable: set prepass.auto: false in config."
+            )
+            return (True, files, msg)
+
+        # Auto-enable when tokens exceed tiered pricing threshold
+        if pricing.tier_threshold is not None and token_estimate > pricing.tier_threshold:
             savings_ratio = 0.5  # Rough estimate: pre-pass reduces tokens by ~50%
             tokens_after_prepass = int(token_estimate * savings_ratio)
             cost_before = (token_estimate / 1_000_000) * pricing.input_per_million

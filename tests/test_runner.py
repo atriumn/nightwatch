@@ -183,28 +183,54 @@ class TestMaybePrepass:
         assert should_run is False
         assert msg == ""
 
-    def test_anthropic_auto_enable_above_tier_threshold(self):
-        """Anthropic with >200K tokens should auto-enable when auto_disable=False."""
+    def test_anthropic_auto_enable_above_context_window(self):
+        """Anthropic with tokens > context window should auto-enable pre-pass."""
         config = NoxauditConfig(
             model="claude-opus-4-6",
             prepass=PrepassConfig(auto_disable=False),
         )
-        files = [FileContent(path="test.py", content="a" * 1_000_000)]  # 250K tokens
+        files = [FileContent(path="test.py", content="a" * 1_000_000)]  # 250K tokens > 200K context
         should_run, returned_files, msg = _maybe_prepass(
             files, ["security"], config, "test-repo", "anthropic"
         )
         assert should_run is True
         assert "Auto-enabling pre-pass" in msg
-        assert "250K tokens" in msg
+        assert "context window" in msg
+
+    def test_auto_enable_above_tier_threshold(self):
+        """Tokens > tier threshold but < context window should trigger for tiered pricing."""
+        config = NoxauditConfig(
+            model="gemini-2.5-pro",  # 1M context, 200K tier threshold
+            prepass=PrepassConfig(auto_disable=False),
+        )
+        files = [FileContent(path="test.py", content="a" * 1_000_000)]  # 250K tokens
+        should_run, returned_files, msg = _maybe_prepass(
+            files, ["security"], config, "test-repo", "gemini"
+        )
+        assert should_run is True
+        assert "Auto-enabling pre-pass" in msg
         assert "tiered pricing" in msg
 
-    def test_gemini_no_auto_enable(self):
-        """Gemini with high tokens should NOT auto-enable (flat pricing, no tier_threshold)."""
+    def test_openai_auto_enable_above_context_window(self):
+        """OpenAI with tokens > context window should auto-enable pre-pass."""
+        config = NoxauditConfig(
+            model="gpt-5-mini",  # 400K context
+            prepass=PrepassConfig(auto_disable=False),
+        )
+        files = [FileContent(path="test.py", content="a" * 2_000_000)]  # 500K tokens > 400K context
+        should_run, returned_files, msg = _maybe_prepass(
+            files, ["security"], config, "test-repo", "openai"
+        )
+        assert should_run is True
+        assert "context window" in msg
+
+    def test_gemini_no_auto_enable_below_context(self):
+        """Gemini with tokens below context window should not auto-enable."""
         config = NoxauditConfig(
             model="gemini-2.5-flash",
             prepass=PrepassConfig(auto_disable=False),
         )
-        files = [FileContent(path="test.py", content="a" * 1_000_000)]  # 250K tokens
+        files = [FileContent(path="test.py", content="a" * 400_000)]  # 100K tokens < 200K context
         should_run, returned_files, msg = _maybe_prepass(
             files, ["security"], config, "test-repo", "gemini"
         )
