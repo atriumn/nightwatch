@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from abc import ABC, abstractmethod
 
 from noxaudit.models import FileContent, Finding
@@ -36,6 +37,42 @@ class BaseProvider(ABC):
             "cache_read_tokens": 0,
             "cache_write_tokens": 0,
         }
+
+    def _poll_batch(
+        self,
+        batch_id: str,
+        default_focus: str | None = None,
+        poll_interval: int = 60,
+        max_consecutive_errors: int = 5,
+    ) -> list[Finding]:
+        """Poll retrieve_batch until done, with retry on transient errors."""
+        consecutive_errors = 0
+
+        while True:
+            try:
+                result = self.retrieve_batch(batch_id, default_focus=default_focus)
+                consecutive_errors = 0
+            except Exception as e:
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    raise RuntimeError(
+                        f"Batch poll failed {max_consecutive_errors} times "
+                        f"consecutively for {self.name}: {e}"
+                    ) from e
+                backoff = 30 * consecutive_errors
+                print(
+                    f"  Poll error ({consecutive_errors}/"
+                    f"{max_consecutive_errors}): {e} — retrying in {backoff}s"
+                )
+                time.sleep(backoff)
+                continue
+
+            if result["status"] == "ended":
+                return result.get("findings", [])
+
+            processing = result["request_counts"]["processing"]
+            print(f"  Waiting... ({processing} processing)")
+            time.sleep(poll_interval)
 
     @staticmethod
     def make_finding_id(raw: dict) -> str:

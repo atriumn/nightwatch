@@ -180,8 +180,6 @@ class GeminiProvider(BaseProvider):
         default_focus: str | None = None,
     ) -> list[Finding]:
         """Synchronous audit: submit batch and poll until done."""
-        import time
-
         batch_id = self.submit_batch(
             files,
             system_prompt,
@@ -189,15 +187,7 @@ class GeminiProvider(BaseProvider):
             num_focus_areas=num_focus_areas,
         )
         print(f"  Batch submitted: {batch_id}")
-
-        while True:
-            result = self.retrieve_batch(batch_id, default_focus=default_focus)
-            if result["status"] == "ended":
-                return result.get("findings", [])
-
-            processing = result["request_counts"]["processing"]
-            print(f"  Waiting... ({processing} processing)")
-            time.sleep(60)
+        return self._poll_batch(batch_id, default_focus=default_focus)
 
     def _build_user_message(self, files: list[FileContent], decision_context: str) -> str:
         file_contents = self._format_files(files)
