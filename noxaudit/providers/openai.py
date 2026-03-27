@@ -74,7 +74,7 @@ class OpenAIProvider(BaseProvider):
     ) -> str:
         """Submit a batch request via OpenAI Batch API. Returns the batch ID."""
         user_message = self._build_user_message(files, decision_context)
-        max_tokens = 4096 * num_focus_areas
+        max_tokens = 16384 * num_focus_areas
 
         request = {
             "custom_id": custom_id,
@@ -210,7 +210,7 @@ class OpenAIProvider(BaseProvider):
     ) -> list[Finding]:
         """Direct chat completion — no batch queue."""
         user_message = self._build_user_message(files, decision_context)
-        max_tokens = 4096 * num_focus_areas
+        max_tokens = 16384 * num_focus_areas
 
         response = self.client.chat.completions.create(
             model=self.model,
