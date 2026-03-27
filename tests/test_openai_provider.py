@@ -241,7 +241,7 @@ class TestSubmitBatch:
             )
 
         entry = json.loads(jsonl_text.strip())
-        assert entry["body"]["max_completion_tokens"] == 4096 * 3
+        assert entry["body"]["max_completion_tokens"] == 16384 * 3
 
 
 class TestRetrieveBatch:
