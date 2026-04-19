@@ -10,6 +10,14 @@ import pytest
 from noxaudit.models import AuditResult, Finding, Severity
 
 
+@pytest.fixture(autouse=True)
+def _clear_openai_key_for_prepass(monkeypatch):
+    """Pre-pass builds a dedicated gpt-5-mini provider when OPENAI_API_KEY is
+    set. Clear it by default in tests so the provider fallback kicks in and
+    mocked providers receive the pre-pass run_sync call as tests expect."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
 @pytest.fixture
 def tmp_repo(tmp_path):
     """Create a minimal repo structure for file-gathering tests."""
