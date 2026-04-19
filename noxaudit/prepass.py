@@ -2,8 +2,33 @@
 
 from __future__ import annotations
 
+import os
+
 from noxaudit.models import ContentTier, FileClassification, FileContent, PrepassResult
 from noxaudit.pricing import MODEL_PRICING
+
+# Pre-pass always runs on gpt-5-mini when available: classification doesn't need
+# a premium model, and using the main audit's model (e.g. gpt-5.4) synchronously
+# paid ~$17/Sunday at the "long context" SKU because chunks blew past the 272K
+# tier threshold. gpt-5-mini has no tier and is ~20x cheaper per token.
+PREPASS_MODEL = "gpt-5-mini"
+
+
+def _build_prepass_provider(fallback_provider):
+    """Build a dedicated pre-pass provider (gpt-5-mini).
+
+    Falls back to the main audit provider when OpenAI is unavailable — typically
+    when OPENAI_API_KEY is not set (Anthropic-only or Gemini-only users).
+    """
+    if not os.environ.get("OPENAI_API_KEY"):
+        return fallback_provider
+    try:
+        from noxaudit.providers.openai import OpenAIProvider
+
+        return OpenAIProvider(model=PREPASS_MODEL)
+    except (ImportError, ValueError):
+        return fallback_provider
+
 
 # Classification prompt: asks the provider to classify files into content tiers.
 # We reuse the existing run_audit() interface — severity encodes the tier:
@@ -121,21 +146,28 @@ def run_prepass(
     if not files:
         return PrepassResult(classified=[], original_count=0, retained_count=0), []
 
-    print(f"  Pre-pass: classifying {len(files)} files...")
+    prepass_provider = _build_prepass_provider(provider)
+    print(
+        f"  Pre-pass: classifying {len(files)} files "
+        f"via {prepass_provider.name} ({prepass_provider.model})..."
+    )
     prompt = build_classification_prompt(focus_names)
 
-    # Chunk files to fit within the model's context window for sync API calls
-    pricing = MODEL_PRICING.get(getattr(provider, "model", ""))
-    max_tokens = (
-        pricing.context_window if pricing else 200_000
-    ) // 2  # 50% headroom for prompt/formatting overhead
+    # Chunk files to fit within the pre-pass model's context window for sync
+    # API calls. We cap at half the context window for prompt/formatting
+    # headroom, and additionally cap at the tier_threshold (when present) so
+    # sync calls don't fall into the long-context SKU.
+    pricing = MODEL_PRICING.get(getattr(prepass_provider, "model", ""))
+    base_cap = (pricing.context_window if pricing else 200_000) // 2
+    tier_cap = pricing.tier_threshold if pricing and pricing.tier_threshold else base_cap
+    max_tokens = min(base_cap, tier_cap)
     chunks = _chunk_by_tokens(files, max_tokens)
 
     classification_findings = []
     for i, chunk in enumerate(chunks):
         if len(chunks) > 1:
             print(f"  Pre-pass chunk {i + 1}/{len(chunks)} ({len(chunk)} files)...")
-        classification_findings.extend(provider.run_sync(chunk, prompt, ""))
+        classification_findings.extend(prepass_provider.run_sync(chunk, prompt, ""))
 
     # Build a tier map from the classification findings
     tier_map: dict[str, ContentTier] = {}
