@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4](https://github.com/atriumn/noxaudit/compare/v1.2.3...v1.2.4) (2026-04-19)
+
+
+### Bug Fixes
+
+* route pre-pass to gpt-5-mini to avoid long-context SKU ([#151](https://github.com/atriumn/noxaudit/issues/151)) ([2de80de](https://github.com/atriumn/noxaudit/commit/2de80deabb794d8aa1d96ca4b75b666f409945c3))
+
 ## [1.2.3](https://github.com/atriumn/noxaudit/compare/v1.2.2...v1.2.3) (2026-03-27)
 
 
